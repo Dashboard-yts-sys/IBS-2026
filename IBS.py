@@ -540,7 +540,7 @@ if not df.empty:
                     text="Revenue_M",
                     color="Revenue_M",
                     color_continuous_scale="Blues",
-                    title="Top Anak Perusahaan / Subholding Berdasarkan Revenue"
+                    title="Top SHAP Berdasarkan Revenue"
                 )
         
                 fig_anak_bar.update_traces(
