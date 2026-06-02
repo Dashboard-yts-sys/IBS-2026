@@ -514,31 +514,50 @@ if not df.empty:
                 st.plotly_chart(fig_donut, use_container_width=True)
 
         with c2:
-            rekap_anak_treemap = rekap_anak[rekap_anak["Revenue_M"] > 0].copy()
-
-            if rekap_anak_treemap.empty:
+            rekap_anak_bar = rekap_anak[rekap_anak["Revenue_M"] > 0].copy()
+        
+            rekap_anak_bar["ANAK PERUSAHAAN"] = (
+                rekap_anak_bar["ANAK PERUSAHAAN"]
+                .astype(str)
+                .str.strip()
+                .replace(["nan", "None", "NaN", "", "-", "0"], "Belum Terisi")
+            )
+        
+            rekap_anak_bar = (
+                rekap_anak_bar
+                .sort_values("Revenue_M", ascending=False)
+                .head(10)
+            )
+        
+            if rekap_anak_bar.empty:
                 st.info("Belum ada data revenue Anak Perusahaan/Subholding yang dapat divisualisasikan.")
             else:
-                fig_treemap = px.treemap(
-                    rekap_anak_treemap,
-                    path=[px.Constant("Total Revenue"), "ANAK PERUSAHAAN"],
-                    values="Revenue_M",
+                fig_anak_bar = px.bar(
+                    rekap_anak_bar.sort_values("Revenue_M", ascending=True),
+                    x="Revenue_M",
+                    y="ANAK PERUSAHAAN",
+                    orientation="h",
+                    text="Revenue_M",
                     color="Revenue_M",
                     color_continuous_scale="Blues",
-                    title="Treemap Revenue per Anak Perusahaan / Subholding"
+                    title="Top Anak Perusahaan / Subholding Berdasarkan Revenue"
                 )
-
-                fig_treemap.update_traces(
-                    texttemplate="<b>%{label}</b><br>%{value:.2f} M",
-                    hovertemplate="<b>%{label}</b><br>Revenue: %{value:.2f} M<extra></extra>"
+        
+                fig_anak_bar.update_traces(
+                    texttemplate="%{text:.2f} M",
+                    textposition="outside",
+                    hovertemplate="<b>%{y}</b><br>Revenue: %{x:.2f} M<extra></extra>"
                 )
-
-                fig_treemap.update_layout(
+        
+                fig_anak_bar.update_layout(
                     height=430,
-                    margin=dict(t=60, l=10, r=10, b=10)
+                    xaxis_title="Revenue (Miliar Rp)",
+                    yaxis_title="",
+                    showlegend=False,
+                    margin=dict(t=60, l=10, r=30, b=10)
                 )
-
-                st.plotly_chart(fig_treemap, use_container_width=True)
+        
+                st.plotly_chart(fig_anak_bar, use_container_width=True)
 
         st.markdown('<div class="section-title">Top 10 UP3 Berdasarkan Revenue</div>', unsafe_allow_html=True)
 
