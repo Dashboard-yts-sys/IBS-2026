@@ -13,6 +13,99 @@ st.set_page_config(
     layout="wide"
 )
 
+st.markdown("""
+<style>
+    .main .block-container {
+        padding-top: 1.2rem;
+        padding-bottom: 1.5rem;
+        max-width: 1400px;
+    }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #f5f7fb 0%, #eef3ff 100%);
+    }
+
+    .hero-box {
+        background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 50%, #22c55e 100%);
+        padding: 24px 28px;
+        border-radius: 22px;
+        color: white;
+        margin-bottom: 18px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+
+    .hero-title {
+        font-size: 2.1rem;
+        font-weight: 800;
+        margin-bottom: 6px;
+    }
+
+    .hero-subtitle {
+        font-size: 1rem;
+        opacity: 0.95;
+    }
+
+    .section-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        margin: 8px 0 14px 0;
+        color: #0f172a;
+    }
+
+    .metric-card {
+        padding: 18px 20px;
+        border-radius: 18px;
+        color: white;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+        min-height: 120px;
+    }
+
+    .metric-title {
+        font-size: 0.95rem;
+        opacity: 0.95;
+        margin-bottom: 10px;
+    }
+
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1.1;
+        margin-bottom: 8px;
+    }
+
+    .metric-sub {
+        font-size: 0.9rem;
+        opacity: 0.95;
+    }
+
+    .card-blue {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    }
+
+    .card-green {
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+    }
+
+    .card-orange {
+        background: linear-gradient(135deg, #ea580c, #f97316);
+    }
+
+    .card-purple {
+        background: linear-gradient(135deg, #7c3aed, #a855f7);
+    }
+
+    .mini-note {
+        padding: 12px 16px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        color: #334155;
+        margin-top: 10px;
+        margin-bottom: 15px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("📊 Dashboard IBS 2026 UID Jatim")
 
 
@@ -198,6 +291,17 @@ def load_data_from_gsheets():
 # =========================
 df = load_data_from_gsheets()
 
+def metric_card(title, value, subtitle, css_class):
+    st.markdown(
+        f"""
+        <div class="metric-card {css_class}">
+            <div class="metric-title">{title}</div>
+            <div class="metric-value">{value}</div>
+            <div class="metric-sub">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # =========================
 # DASHBOARD
@@ -243,221 +347,331 @@ if not df.empty:
     if pilih_status:
         df_filtered = df_filtered[df_filtered["Status Terupdate"].isin(pilih_status)]
 
-
     # =========================
-    # KPI UTAMA
+    # KPI / HEADER
     # =========================
     total_project = len(df_filtered)
     total_revenue = df_filtered["Nominal Kontrak / Revenue (Rp)"].sum()
     total_won = df_filtered["Close Won (Rp)"].sum()
     total_potensi = df_filtered["Potensi (Rp)"].sum()
 
-    col1, col2, col3, col4 = st.columns(4)
+    won_ratio = (total_won / total_revenue * 100) if total_revenue > 0 else 0
+    potensi_ratio = (total_potensi / total_revenue * 100) if total_revenue > 0 else 0
+    avg_project = (total_revenue / total_project) if total_project > 0 else 0
 
-    col1.metric("Total Project", f"{total_project:,.0f} Unit")
-    col2.metric("Total Revenue", format_miliar(total_revenue))
-    col3.metric("Close Won", format_miliar(total_won))
-    col4.metric("Potensi", format_miliar(total_potensi))
-
-
-    # =========================
-    # GRAFIK KLASTER PRODUK
-    # =========================
-    st.subheader("Distribusi Revenue per Klaster Produk")
-
-    rekap_klaster = (
-        df_filtered
-        .groupby("Klaster Produk", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
-        .sum()
-        .reset_index()
+    st.markdown(
+        f"""
+        <div class="hero-box">
+            <div class="hero-title">📊 Dashboard IBS 2026 UID Jatim</div>
+            <div class="hero-subtitle">
+                Monitoring Revenue, Close Won, Potensi, Klaster Produk, Anak Perusahaan/Subholding, dan Detail Project IBS secara interaktif
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
-    rekap_klaster["Revenue (Miliar Rp)"] = (
-        rekap_klaster["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
-    )
-
-    fig1 = px.bar(
-        rekap_klaster,
-        x="Klaster Produk",
-        y="Revenue (Miliar Rp)",
-        color="Klaster Produk",
-        text=rekap_klaster["Revenue (Miliar Rp)"].apply(lambda x: f"{x:,.2f} M")
-    )
-
-    fig1.update_traces(textposition="outside")
-
-    fig1.update_layout(
-        yaxis_title="Revenue (Miliar Rp)",
-        xaxis_title="Klaster Produk",
-        showlegend=True,
-        height=500
-    )
-
-    st.plotly_chart(fig1, use_container_width=True)
-
-
-    # =========================
-    # GRAFIK ANAK PERUSAHAAN
-    # =========================
-    st.subheader("Distribusi Revenue per Anak Perusahaan / Subholding")
-
-    rekap_anak = (
-        df_filtered
-        .groupby("ANAK PERUSAHAAN", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
-        .sum()
-        .reset_index()
-        .sort_values("Nominal Kontrak / Revenue (Rp)", ascending=False)
-    )
-
-    rekap_anak["Revenue (Miliar Rp)"] = (
-        rekap_anak["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
-    )
-
-    fig2 = px.bar(
-        rekap_anak,
-        x="ANAK PERUSAHAAN",
-        y="Revenue (Miliar Rp)",
-        color="ANAK PERUSAHAAN",
-        text=rekap_anak["Revenue (Miliar Rp)"].apply(lambda x: f"{x:,.2f} M")
-    )
-
-    fig2.update_traces(textposition="outside")
-
-    fig2.update_layout(
-        yaxis_title="Revenue (Miliar Rp)",
-        xaxis_title="Anak Perusahaan / Subholding",
-        showlegend=True,
-        height=500
-    )
-
-    st.plotly_chart(fig2, use_container_width=True)
-
-
-    # =========================
-    # REKAP PER UP3
-    # =========================
-    st.subheader("Rekap Revenue per UP3")
-    
-    rekap_up3 = (
-        df_filtered
-        .groupby("UP3", dropna=False)
-        .agg(
-            Jumlah_Project=("UP3", "count"),
-            Total_Revenue_Rp=("Nominal Kontrak / Revenue (Rp)", "sum"),
-            Close_Won_Rp=("Close Won (Rp)", "sum"),
-            Potensi_Rp=("Potensi (Rp)", "sum")
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        metric_card(
+            "Total Project",
+            f"{total_project:,.0f} Unit",
+            f"Rata-rata revenue/proyek: {format_miliar(avg_project)}",
+            "card-blue"
         )
-        .reset_index()
+    with k2:
+        metric_card(
+            "Total Revenue",
+            format_miliar(total_revenue),
+            "Akumulasi seluruh project terfilter",
+            "card-green"
+        )
+    with k3:
+        metric_card(
+            "Close Won",
+            format_miliar(total_won),
+            f"Kontribusi {won_ratio:.1f}% dari total revenue",
+            "card-orange"
+        )
+    with k4:
+        metric_card(
+            "Potensi",
+            format_miliar(total_potensi),
+            f"Setara {potensi_ratio:.1f}% dari total revenue",
+            "card-purple"
+        )
+
+    st.markdown(
+        """
+        <div class="mini-note">
+        💡 <b>Insight cepat:</b> gunakan filter di sisi kiri untuk memantau performa per UP3, klaster produk, subholding, dan status pipeline.
+        </div>
+        """,
+        unsafe_allow_html=True
     )
-    
-    # Urutkan dari Total Revenue tertinggi ke terendah
-    rekap_up3 = rekap_up3.sort_values(
-        by="Total_Revenue_Rp",
-        ascending=False
-    ).reset_index(drop=True)
-    
-    # Tambahkan nomor urut
-    rekap_up3.insert(0, "No", range(1, len(rekap_up3) + 1))
-    
-    # Format tampilan Rupiah Miliar
-    rekap_up3["Total Revenue"] = rekap_up3["Total_Revenue_Rp"].apply(format_miliar)
-    rekap_up3["Close Won"] = rekap_up3["Close_Won_Rp"].apply(format_miliar)
-    rekap_up3["Potensi"] = rekap_up3["Potensi_Rp"].apply(format_miliar)
-    
-    st.dataframe(
-        rekap_up3[
-            [
-                "No",
-                "UP3",
-                "Jumlah_Project",
-                "Total Revenue",
-                "Close Won",
-                "Potensi"
+
+    # =========================
+    # TABS
+    # =========================
+    tab1, tab2, tab3 = st.tabs(["📈 Overview", "📊 Analisis", "📋 Detail Data"])
+
+    with tab1:
+        st.markdown('<div class="section-title">Distribusi Revenue</div>', unsafe_allow_html=True)
+
+        # Rekap Klaster
+        rekap_klaster = (
+            df_filtered.groupby("Klaster Produk", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
+            .sum()
+            .reset_index()
+        )
+        rekap_klaster["Revenue_M"] = rekap_klaster["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+
+        # Rekap Anak Perusahaan
+        rekap_anak = (
+            df_filtered.groupby("ANAK PERUSAHAAN", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
+            .sum()
+            .reset_index()
+            .sort_values("Nominal Kontrak / Revenue (Rp)", ascending=False)
+        )
+        rekap_anak["Revenue_M"] = rekap_anak["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            fig_donut = px.pie(
+                rekap_klaster,
+                names="Klaster Produk",
+                values="Revenue_M",
+                hole=0.55,
+                title="Komposisi Revenue per Klaster Produk"
+            )
+            fig_donut.update_traces(
+                textinfo="percent+label",
+                hovertemplate="<b>%{label}</b><br>Revenue: %{value:.2f} M<extra></extra>"
+            )
+            fig_donut.update_layout(height=430, legend_title="Klaster Produk")
+            st.plotly_chart(fig_donut, use_container_width=True)
+
+        with c2:
+            fig_treemap = px.treemap(
+                rekap_anak,
+                path=["ANAK PERUSAHAAN"],
+                values="Revenue_M",
+                color="Revenue_M",
+                color_continuous_scale="Blues",
+                title="Treemap Revenue per Anak Perusahaan / Subholding"
+            )
+            fig_treemap.update_traces(
+                texttemplate="<b>%{label}</b><br>%{value:.2f} M"
+            )
+            fig_treemap.update_layout(height=430)
+            st.plotly_chart(fig_treemap, use_container_width=True)
+
+        st.markdown('<div class="section-title">Top UP3 Berdasarkan Revenue</div>', unsafe_allow_html=True)
+
+        rekap_up3_chart = (
+            df_filtered.groupby("UP3", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
+            .sum()
+            .reset_index()
+            .sort_values("Nominal Kontrak / Revenue (Rp)", ascending=False)
+            .head(10)
+        )
+        rekap_up3_chart["Revenue_M"] = rekap_up3_chart["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+
+        fig_top_up3 = px.bar(
+            rekap_up3_chart.sort_values("Revenue_M", ascending=True),
+            x="Revenue_M",
+            y="UP3",
+            orientation="h",
+            text="Revenue_M",
+            color="Revenue_M",
+            color_continuous_scale="Viridis",
+            title="Top 10 UP3 Berdasarkan Revenue"
+        )
+        fig_top_up3.update_traces(
+            texttemplate="%{text:.2f} M",
+            textposition="outside",
+            hovertemplate="<b>%{y}</b><br>Revenue: %{x:.2f} M<extra></extra>"
+        )
+        fig_top_up3.update_layout(
+            height=500,
+            xaxis_title="Revenue (Miliar Rp)",
+            yaxis_title=""
+        )
+        st.plotly_chart(fig_top_up3, use_container_width=True)
+
+    with tab2:
+        st.markdown('<div class="section-title">Pipeline dan Komposisi Status</div>', unsafe_allow_html=True)
+
+        # Bar Klaster
+        rekap_klaster_bar = rekap_klaster.copy().sort_values("Revenue_M", ascending=False)
+
+        c3, c4 = st.columns(2)
+
+        with c3:
+            fig_klaster_bar = px.bar(
+                rekap_klaster_bar,
+                x="Klaster Produk",
+                y="Revenue_M",
+                text="Revenue_M",
+                color="Klaster Produk",
+                title="Revenue per Klaster Produk"
+            )
+            fig_klaster_bar.update_traces(
+                texttemplate="%{text:.2f} M",
+                textposition="outside"
+            )
+            fig_klaster_bar.update_layout(
+                height=450,
+                yaxis_title="Revenue (Miliar Rp)",
+                xaxis_title=""
+            )
+            st.plotly_chart(fig_klaster_bar, use_container_width=True)
+
+        with c4:
+            rekap_status = (
+                df_filtered.groupby("Status Terupdate", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
+                .sum()
+                .reset_index()
+                .sort_values("Nominal Kontrak / Revenue (Rp)", ascending=False)
+            )
+            rekap_status["Revenue_M"] = rekap_status["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+
+            fig_status = px.bar(
+                rekap_status,
+                x="Status Terupdate",
+                y="Revenue_M",
+                text="Revenue_M",
+                color="Status Terupdate",
+                title="Komposisi Revenue per Status"
+            )
+            fig_status.update_traces(
+                texttemplate="%{text:.2f} M",
+                textposition="outside"
+            )
+            fig_status.update_layout(
+                height=450,
+                yaxis_title="Revenue (Miliar Rp)",
+                xaxis_title=""
+            )
+            st.plotly_chart(fig_status, use_container_width=True)
+
+        st.markdown('<div class="section-title">Rekap Revenue per UP3</div>', unsafe_allow_html=True)
+
+        rekap_up3 = (
+            df_filtered
+            .groupby("UP3", dropna=False)
+            .agg(
+                Jumlah_Project=("UP3", "count"),
+                Total_Revenue_Rp=("Nominal Kontrak / Revenue (Rp)", "sum"),
+                Close_Won_Rp=("Close Won (Rp)", "sum"),
+                Potensi_Rp=("Potensi (Rp)", "sum")
+            )
+            .reset_index()
+        )
+
+        rekap_up3 = rekap_up3.sort_values(
+            by="Total_Revenue_Rp",
+            ascending=False
+        ).reset_index(drop=True)
+
+        rekap_up3.insert(0, "No", range(1, len(rekap_up3) + 1))
+        rekap_up3["Total Revenue"] = rekap_up3["Total_Revenue_Rp"].apply(format_miliar)
+        rekap_up3["Close Won"] = rekap_up3["Close_Won_Rp"].apply(format_miliar)
+        rekap_up3["Potensi"] = rekap_up3["Potensi_Rp"].apply(format_miliar)
+
+        st.dataframe(
+            rekap_up3[
+                ["No", "UP3", "Jumlah_Project", "Total Revenue", "Close Won", "Potensi"]
+            ],
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.subheader("🤖 AI Executive Summary")
+        if st.button("Generate Narasi Evaluasi dengan AI"):
+            if model is None:
+                st.warning("API Key Gemini belum diisi. Silakan isi GEMINI_API_KEY di Streamlit Secrets atau langsung di kode.")
+            else:
+                with st.spinner("Menganalisis data..."):
+                    data_ringkas = f"""
+                    Total Project: {total_project}
+                    Total Revenue: {format_miliar(total_revenue)}
+                    Close Won: {format_miliar(total_won)}
+                    Potensi: {format_miliar(total_potensi)}
+
+                    Rekap Klaster:
+                    {rekap_klaster.to_dict(orient='records')}
+
+                    Rekap Anak Perusahaan:
+                    {rekap_anak.to_dict(orient='records')}
+
+                    Rekap UP3:
+                    {rekap_up3.to_dict(orient='records')}
+                    """
+
+                    prompt = f"""
+                    Berdasarkan data performa IBS UID Jawa Timur berikut:
+                    {data_ringkas}
+
+                    Buatkan narasi executive summary singkat, analitis, dan terstruktur untuk manajemen.
+                    Gunakan bahasa Indonesia formal.
+                    Fokus pada:
+                    1. Gambaran pencapaian revenue dan close won.
+                    2. Klaster produk yang dominan.
+                    3. Peran anak perusahaan/subholding.
+                    4. Potensi yang perlu dikonversi menjadi close won.
+                    5. Rekomendasi tindak lanjut strategis.
+                    """
+
+                    response = model.generate_content(prompt)
+                    st.info(response.text)
+
+    with tab3:
+        st.markdown('<div class="section-title">Data Detail</div>', unsafe_allow_html=True)
+
+        df_tampil = df_filtered.copy().reset_index(drop=True)
+
+        if "No" in df_tampil.columns:
+            df_tampil = df_tampil.drop(columns=["No"])
+
+        df_tampil.insert(0, "No", range(1, len(df_tampil) + 1))
+
+        df_tampil["Nominal Revenue (Miliar Rp)"] = (
+            df_tampil["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+        )
+
+        df_tampil["Close Won (Miliar Rp)"] = (
+            df_tampil["Close Won (Rp)"] / 1_000_000_000
+        )
+
+        df_tampil["Potensi (Miliar Rp)"] = (
+            df_tampil["Potensi (Rp)"] / 1_000_000_000
+        )
+
+        search_nama = st.text_input("🔍 Cari Nama Pelanggan / Produk", "")
+
+        if search_nama:
+            df_tampil = df_tampil[
+                df_tampil.astype(str).apply(
+                    lambda row: row.str.contains(search_nama, case=False, na=False).any(),
+                    axis=1
+                )
             ]
-        ],
-        use_container_width=True,
-        hide_index=True
-    )
 
-    # =========================
-    # AI EXECUTIVE SUMMARY
-    # =========================
-    st.subheader("🤖 AI Executive Summary")
+        st.dataframe(
+            df_tampil,
+            use_container_width=True,
+            hide_index=True
+        )
 
-    if st.button("Generate Narasi Evaluasi dengan AI"):
-        if model is None:
-            st.warning("API Key Gemini belum diisi. Silakan isi GEMINI_API_KEY di Streamlit Secrets atau langsung di kode.")
-        else:
-            with st.spinner("Menganalisis data..."):
-                data_ringkas = f"""
-                Total Project: {total_project}
-                Total Revenue: {format_miliar(total_revenue)}
-                Close Won: {format_miliar(total_won)}
-                Potensi: {format_miliar(total_potensi)}
-
-                Rekap Klaster:
-                {rekap_klaster.to_dict(orient='records')}
-
-                Rekap Anak Perusahaan:
-                {rekap_anak.to_dict(orient='records')}
-
-                Rekap UP3:
-                {rekap_up3.to_dict(orient='records')}
-                """
-
-                prompt = f"""
-                Berdasarkan data performa IBS UID Jawa Timur berikut:
-                {data_ringkas}
-
-                Buatkan narasi executive summary singkat, analitis, dan terstruktur untuk manajemen.
-                Gunakan bahasa Indonesia formal.
-                Fokus pada:
-                1. Gambaran pencapaian revenue dan close won.
-                2. Klaster produk yang dominan.
-                3. Peran anak perusahaan/subholding.
-                4. Potensi yang perlu dikonversi menjadi close won.
-                5. Rekomendasi tindak lanjut strategis.
-                """
-
-                response = model.generate_content(prompt)
-                st.info(response.text)
-
-
-    # =========================
-    # DATA DETAIL
-    # =========================
-    st.subheader("Data Detail")
-    
-    df_tampil = df_filtered.copy()
-    
-    # Reset index agar tidak muncul nomor bawaan dataframe
-    df_tampil = df_tampil.reset_index(drop=True)
-    
-    # Hapus kolom No lama jika sudah ada dari Google Sheets
-    if "No" in df_tampil.columns:
-        df_tampil = df_tampil.drop(columns=["No"])
-    
-    # Tambahkan nomor urut baru
-    df_tampil.insert(0, "No", range(1, len(df_tampil) + 1))
-    
-    # Tambahkan kolom nominal dalam miliar
-    df_tampil["Nominal Revenue (Miliar Rp)"] = (
-        df_tampil["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
-    )
-    
-    df_tampil["Close Won (Miliar Rp)"] = (
-        df_tampil["Close Won (Rp)"] / 1_000_000_000
-    )
-    
-    df_tampil["Potensi (Miliar Rp)"] = (
-        df_tampil["Potensi (Rp)"] / 1_000_000_000
-    )
-    
-    st.dataframe(
-        df_tampil,
-        use_container_width=True,
-        hide_index=True
-    )
+        csv = df_tampil.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="⬇️ Download Data Filtered (CSV)",
+            data=csv,
+            file_name="dashboard_ibs_filtered.csv",
+            mime="text/csv"
+        )
 
 else:
     st.warning("Data belum berhasil dimuat.")
