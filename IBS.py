@@ -337,7 +337,7 @@ if not df.empty:
     # REKAP PER UP3
     # =========================
     st.subheader("Rekap Revenue per UP3")
-
+    
     rekap_up3 = (
         df_filtered
         .groupby("UP3", dropna=False)
@@ -348,16 +348,26 @@ if not df.empty:
             Potensi_Rp=("Potensi (Rp)", "sum")
         )
         .reset_index()
-        .sort_values("Total_Revenue_Rp", ascending=False)
     )
-
+    
+    # Urutkan dari Total Revenue tertinggi ke terendah
+    rekap_up3 = rekap_up3.sort_values(
+        by="Total_Revenue_Rp",
+        ascending=False
+    ).reset_index(drop=True)
+    
+    # Tambahkan nomor urut
+    rekap_up3.insert(0, "No", range(1, len(rekap_up3) + 1))
+    
+    # Format tampilan Rupiah Miliar
     rekap_up3["Total Revenue"] = rekap_up3["Total_Revenue_Rp"].apply(format_miliar)
     rekap_up3["Close Won"] = rekap_up3["Close_Won_Rp"].apply(format_miliar)
     rekap_up3["Potensi"] = rekap_up3["Potensi_Rp"].apply(format_miliar)
-
+    
     st.dataframe(
         rekap_up3[
             [
+                "No",
                 "UP3",
                 "Jumlah_Project",
                 "Total Revenue",
@@ -365,9 +375,9 @@ if not df.empty:
                 "Potensi"
             ]
         ],
-        use_container_width=True
+        use_container_width=True,
+        hide_index=True
     )
-
 
     # =========================
     # AI EXECUTIVE SUMMARY
@@ -417,22 +427,37 @@ if not df.empty:
     # DATA DETAIL
     # =========================
     st.subheader("Data Detail")
-
+    
     df_tampil = df_filtered.copy()
-
+    
+    # Reset index agar tidak muncul nomor bawaan dataframe
+    df_tampil = df_tampil.reset_index(drop=True)
+    
+    # Hapus kolom No lama jika sudah ada dari Google Sheets
+    if "No" in df_tampil.columns:
+        df_tampil = df_tampil.drop(columns=["No"])
+    
+    # Tambahkan nomor urut baru
+    df_tampil.insert(0, "No", range(1, len(df_tampil) + 1))
+    
+    # Tambahkan kolom nominal dalam miliar
     df_tampil["Nominal Revenue (Miliar Rp)"] = (
         df_tampil["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
     )
-
+    
     df_tampil["Close Won (Miliar Rp)"] = (
         df_tampil["Close Won (Rp)"] / 1_000_000_000
     )
-
+    
     df_tampil["Potensi (Miliar Rp)"] = (
         df_tampil["Potensi (Rp)"] / 1_000_000_000
     )
-
-    st.dataframe(df_tampil, use_container_width=True)
+    
+    st.dataframe(
+        df_tampil,
+        use_container_width=True,
+        hide_index=True
+    )
 
 else:
     st.warning("Data belum berhasil dimuat.")
