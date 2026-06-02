@@ -370,7 +370,7 @@ if not df.empty:
         <div class="hero-box">
             <div class="hero-title">📊 Dashboard IBS 2026 UID Jatim</div>
             <div class="hero-subtitle">
-                Monitoring Revenue, Close Won, Potensi, Klaster Produk, Anak Perusahaan/Subholding, dan Detail Project IBS secara interaktif.
+                Monitoring Revenue, Close Won, Potensi, Klaster Produk, Anak Perusahaan/Subholding, dan Project IBS.
             </div>
         </div>
         """,
