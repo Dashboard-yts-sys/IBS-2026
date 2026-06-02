@@ -5,20 +5,23 @@ import google.generativeai as genai
 import requests
 from io import BytesIO
 
-# =========================
+# =====================================================
 # KONFIGURASI HALAMAN
-# =========================
+# =====================================================
 st.set_page_config(
     page_title="Dashboard IBS 2026 UID Jatim",
     layout="wide"
 )
 
+# =====================================================
+# CUSTOM CSS
+# =====================================================
 st.markdown("""
 <style>
     .main .block-container {
         padding-top: 1.2rem;
         padding-bottom: 1.5rem;
-        max-width: 1400px;
+        max-width: 1450px;
     }
 
     [data-testid="stSidebar"] {
@@ -67,14 +70,14 @@ st.markdown("""
     }
 
     .metric-value {
-        font-size: 2rem;
+        font-size: 1.85rem;
         font-weight: 800;
         line-height: 1.1;
         margin-bottom: 8px;
     }
 
     .metric-sub {
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         opacity: 0.95;
     }
 
@@ -103,28 +106,23 @@ st.markdown("""
         margin-top: 10px;
         margin-bottom: 15px;
     }
+
+    div[data-testid="stMetricValue"] {
+        font-size: 1.8rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Dashboard IBS 2026 UID Jatim")
 
-
-# =========================
-# FUNGSI FORMAT ANGKA
-# =========================
+# =====================================================
+# FUNGSI BANTUAN
+# =====================================================
 def format_miliar(value):
     try:
         value = float(value)
         return f"Rp {value / 1_000_000_000:,.2f} M"
     except:
-        return "Rp 0,00 M"
-
-
-def format_angka(value):
-    try:
-        return f"{float(value):,.0f}"
-    except:
-        return "0"
+        return "Rp 0.00 M"
 
 
 def clean_rupiah(value):
@@ -150,11 +148,31 @@ def clean_rupiah(value):
     return pd.to_numeric(value, errors="coerce")
 
 
-# =========================
+def metric_card(title, value, subtitle, css_class):
+    st.markdown(
+        f"""
+        <div class="metric-card {css_class}">
+            <div class="metric-title">{title}</div>
+            <div class="metric-value">{value}</div>
+            <div class="metric-sub">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def bersihkan_teks_kosong(series):
+    return (
+        series
+        .astype(str)
+        .str.strip()
+        .replace(["nan", "None", "NaN", "", "-", "0"], "Belum Terisi")
+    )
+
+
+# =====================================================
 # SETUP GEMINI
-# =========================
-# Lebih aman pakai st.secrets di Streamlit Cloud.
-# Jika belum pakai secrets, isi langsung API key di bawah.
+# =====================================================
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 except:
@@ -167,14 +185,12 @@ else:
     model = None
 
 
-# =========================
+# =====================================================
 # LOAD DATA GOOGLE SHEETS
-# =========================
+# =====================================================
 @st.cache_data(ttl=600)
 def load_data_from_gsheets():
     sheet_id = "1f4uh89R_DTC1qAAJxsBvcDIgKvsMt4yq_sJQNBd9jAw"
-
-    # Link export Excel
     export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
 
     try:
@@ -192,7 +208,6 @@ def load_data_from_gsheets():
 
         xls = pd.ExcelFile(BytesIO(response.content), engine="openpyxl")
 
-        # Sheet UP3 yang akan digabung
         target_sheets = [
             "BJN", "BWI", "KDR", "MDN", "MLG", "MJK", "JBR", "STB",
             "PNG", "MDR", "PSR", "GSK", "SDA", "SBU", "SBB", "SBS"
@@ -240,19 +255,21 @@ def load_data_from_gsheets():
             st.write("Kolom yang terbaca:", list(df.columns))
             return pd.DataFrame()
 
-        # Bersihkan kolom nominal
+        # Bersihkan nominal
         df[col_nominal] = df[col_nominal].apply(clean_rupiah)
         df[col_nominal] = pd.to_numeric(df[col_nominal], errors="coerce").fillna(0)
 
         # Bersihkan kolom teks
-        df[col_status] = df[col_status].astype(str).str.strip()
-        df[col_up3] = df[col_up3].astype(str).str.strip()
-        df[col_klaster] = df[col_klaster].astype(str).str.strip()
-        df[col_anak_perusahaan] = df[col_anak_perusahaan].astype(str).str.strip()
+        df[col_status] = bersihkan_teks_kosong(df[col_status])
+        df[col_up3] = bersihkan_teks_kosong(df[col_up3])
+        df[col_klaster] = bersihkan_teks_kosong(df[col_klaster])
+        df[col_anak_perusahaan] = bersihkan_teks_kosong(df[col_anak_perusahaan])
 
-        # Hapus baris tanpa nama pelanggan atau tanpa data penting
+        # Hapus baris tanpa nama pelanggan
         if "Nama Pelanggan" in df.columns:
             df = df[df["Nama Pelanggan"].notna()]
+            df["Nama Pelanggan"] = df["Nama Pelanggan"].astype(str).str.strip()
+            df = df[df["Nama Pelanggan"] != ""]
 
         # Status klasifikasi
         status_won = [
@@ -286,31 +303,20 @@ def load_data_from_gsheets():
         return pd.DataFrame()
 
 
-# =========================
+# =====================================================
 # PANGGIL DATA
-# =========================
+# =====================================================
 df = load_data_from_gsheets()
 
-def metric_card(title, value, subtitle, css_class):
-    st.markdown(
-        f"""
-        <div class="metric-card {css_class}">
-            <div class="metric-title">{title}</div>
-            <div class="metric-value">{value}</div>
-            <div class="metric-sub">{subtitle}</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
-# =========================
+# =====================================================
 # DASHBOARD
-# =========================
+# =====================================================
 if not df.empty:
 
-    # =========================
+    # =====================================================
     # SIDEBAR FILTER
-    # =========================
+    # =====================================================
     st.sidebar.header("Filter Data")
 
     pilih_up3 = st.sidebar.multiselect(
@@ -347,9 +353,9 @@ if not df.empty:
     if pilih_status:
         df_filtered = df_filtered[df_filtered["Status Terupdate"].isin(pilih_status)]
 
-    # =========================
-    # KPI / HEADER
-    # =========================
+    # =====================================================
+    # KPI
+    # =====================================================
     total_project = len(df_filtered)
     total_revenue = df_filtered["Nominal Kontrak / Revenue (Rp)"].sum()
     total_won = df_filtered["Close Won (Rp)"].sum()
@@ -360,11 +366,11 @@ if not df.empty:
     avg_project = (total_revenue / total_project) if total_project > 0 else 0
 
     st.markdown(
-        f"""
+        """
         <div class="hero-box">
             <div class="hero-title">📊 Dashboard IBS 2026 UID Jatim</div>
             <div class="hero-subtitle">
-                Monitoring Revenue, Close Won, Potensi, Klaster Produk, Anak Perusahaan/Subholding, dan Detail Project IBS secara interaktif
+                Monitoring Revenue, Close Won, Potensi, Klaster Produk, Anak Perusahaan/Subholding, dan Detail Project IBS secara interaktif.
             </div>
         </div>
         """,
@@ -372,6 +378,7 @@ if not df.empty:
     )
 
     k1, k2, k3, k4 = st.columns(4)
+
     with k1:
         metric_card(
             "Total Project",
@@ -379,6 +386,7 @@ if not df.empty:
             f"Rata-rata revenue/proyek: {format_miliar(avg_project)}",
             "card-blue"
         )
+
     with k2:
         metric_card(
             "Total Revenue",
@@ -386,6 +394,7 @@ if not df.empty:
             "Akumulasi seluruh project terfilter",
             "card-green"
         )
+
     with k3:
         metric_card(
             "Close Won",
@@ -393,6 +402,7 @@ if not df.empty:
             f"Kontribusi {won_ratio:.1f}% dari total revenue",
             "card-orange"
         )
+
     with k4:
         metric_card(
             "Potensi",
@@ -404,184 +414,239 @@ if not df.empty:
     st.markdown(
         """
         <div class="mini-note">
-        💡 <b>Insight cepat:</b> gunakan filter di sisi kiri untuk memantau performa per UP3, klaster produk, subholding, dan status pipeline.
+        💡 <b>Insight cepat:</b> gunakan filter di sisi kiri untuk memantau performa per UP3, klaster produk, anak perusahaan/subholding, dan status pipeline.
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    # =========================
-    # TABS
-    # =========================
+    # =====================================================
+    # DATA REKAP DASAR
+    # =====================================================
+    rekap_klaster = (
+        df_filtered
+        .groupby("Klaster Produk", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
+        .sum()
+        .reset_index()
+    )
+
+    rekap_klaster["Klaster Produk"] = bersihkan_teks_kosong(rekap_klaster["Klaster Produk"])
+    rekap_klaster["Revenue_M"] = rekap_klaster["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+    rekap_klaster = rekap_klaster.sort_values("Revenue_M", ascending=False)
+
+    rekap_anak = (
+        df_filtered
+        .groupby("ANAK PERUSAHAAN", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
+        .sum()
+        .reset_index()
+    )
+
+    rekap_anak["ANAK PERUSAHAAN"] = bersihkan_teks_kosong(rekap_anak["ANAK PERUSAHAAN"])
+    rekap_anak["Revenue_M"] = rekap_anak["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+    rekap_anak = rekap_anak.sort_values("Revenue_M", ascending=False)
+
+    rekap_status = (
+        df_filtered
+        .groupby("Status Terupdate", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
+        .sum()
+        .reset_index()
+    )
+
+    rekap_status["Status Terupdate"] = bersihkan_teks_kosong(rekap_status["Status Terupdate"])
+    rekap_status["Revenue_M"] = rekap_status["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+    rekap_status = rekap_status.sort_values("Revenue_M", ascending=False)
+
+    rekap_up3 = (
+        df_filtered
+        .groupby("UP3", dropna=False)
+        .agg(
+            Jumlah_Project=("UP3", "count"),
+            Total_Revenue_Rp=("Nominal Kontrak / Revenue (Rp)", "sum"),
+            Close_Won_Rp=("Close Won (Rp)", "sum"),
+            Potensi_Rp=("Potensi (Rp)", "sum")
+        )
+        .reset_index()
+    )
+
+    rekap_up3["UP3"] = bersihkan_teks_kosong(rekap_up3["UP3"])
+    rekap_up3 = rekap_up3.sort_values(
+        by="Total_Revenue_Rp",
+        ascending=False
+    ).reset_index(drop=True)
+
+    # =====================================================
+    # TAB DASHBOARD
+    # =====================================================
     tab1, tab2, tab3 = st.tabs(["📈 Overview", "📊 Analisis", "📋 Detail Data"])
 
+    # =====================================================
+    # TAB 1 OVERVIEW
+    # =====================================================
     with tab1:
         st.markdown('<div class="section-title">Distribusi Revenue</div>', unsafe_allow_html=True)
-
-        # Rekap Klaster
-        rekap_klaster = (
-            df_filtered.groupby("Klaster Produk", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
-            .sum()
-            .reset_index()
-        )
-        rekap_klaster["Revenue_M"] = rekap_klaster["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
-
-        # Rekap Anak Perusahaan
-        rekap_anak = (
-            df_filtered.groupby("ANAK PERUSAHAAN", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
-            .sum()
-            .reset_index()
-            .sort_values("Nominal Kontrak / Revenue (Rp)", ascending=False)
-        )
-        rekap_anak["Revenue_M"] = rekap_anak["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
 
         c1, c2 = st.columns(2)
 
         with c1:
-            fig_donut = px.pie(
-                rekap_klaster,
-                names="Klaster Produk",
-                values="Revenue_M",
-                hole=0.55,
-                title="Komposisi Revenue per Klaster Produk"
-            )
-            fig_donut.update_traces(
-                textinfo="percent+label",
-                hovertemplate="<b>%{label}</b><br>Revenue: %{value:.2f} M<extra></extra>"
-            )
-            fig_donut.update_layout(height=430, legend_title="Klaster Produk")
-            st.plotly_chart(fig_donut, use_container_width=True)
+            if rekap_klaster.empty or rekap_klaster["Revenue_M"].sum() <= 0:
+                st.info("Belum ada data revenue klaster yang dapat divisualisasikan.")
+            else:
+                fig_donut = px.pie(
+                    rekap_klaster,
+                    names="Klaster Produk",
+                    values="Revenue_M",
+                    hole=0.55,
+                    title="Komposisi Revenue per Klaster Produk"
+                )
+
+                fig_donut.update_traces(
+                    textinfo="percent",
+                    textposition="inside",
+                    hovertemplate="<b>%{label}</b><br>Revenue: %{value:.2f} M<br>Persentase: %{percent}<extra></extra>"
+                )
+
+                fig_donut.update_layout(
+                    height=430,
+                    legend_title="Klaster Produk",
+                    margin=dict(t=60, l=10, r=10, b=10)
+                )
+
+                st.plotly_chart(fig_donut, use_container_width=True)
 
         with c2:
-            fig_treemap = px.treemap(
-                rekap_anak,
-                path=["ANAK PERUSAHAAN"],
-                values="Revenue_M",
+            rekap_anak_treemap = rekap_anak[rekap_anak["Revenue_M"] > 0].copy()
+
+            if rekap_anak_treemap.empty:
+                st.info("Belum ada data revenue Anak Perusahaan/Subholding yang dapat divisualisasikan.")
+            else:
+                fig_treemap = px.treemap(
+                    rekap_anak_treemap,
+                    path=[px.Constant("Total Revenue"), "ANAK PERUSAHAAN"],
+                    values="Revenue_M",
+                    color="Revenue_M",
+                    color_continuous_scale="Blues",
+                    title="Treemap Revenue per Anak Perusahaan / Subholding"
+                )
+
+                fig_treemap.update_traces(
+                    texttemplate="<b>%{label}</b><br>%{value:.2f} M",
+                    hovertemplate="<b>%{label}</b><br>Revenue: %{value:.2f} M<extra></extra>"
+                )
+
+                fig_treemap.update_layout(
+                    height=430,
+                    margin=dict(t=60, l=10, r=10, b=10)
+                )
+
+                st.plotly_chart(fig_treemap, use_container_width=True)
+
+        st.markdown('<div class="section-title">Top 10 UP3 Berdasarkan Revenue</div>', unsafe_allow_html=True)
+
+        rekap_up3_chart = rekap_up3.copy()
+        rekap_up3_chart["Revenue_M"] = rekap_up3_chart["Total_Revenue_Rp"] / 1_000_000_000
+        rekap_up3_chart = rekap_up3_chart.sort_values("Revenue_M", ascending=False).head(10)
+
+        if rekap_up3_chart.empty or rekap_up3_chart["Revenue_M"].sum() <= 0:
+            st.info("Belum ada data revenue UP3 yang dapat divisualisasikan.")
+        else:
+            fig_top_up3 = px.bar(
+                rekap_up3_chart.sort_values("Revenue_M", ascending=True),
+                x="Revenue_M",
+                y="UP3",
+                orientation="h",
+                text="Revenue_M",
                 color="Revenue_M",
-                color_continuous_scale="Blues",
-                title="Treemap Revenue per Anak Perusahaan / Subholding"
+                color_continuous_scale="Viridis",
+                title="Top 10 UP3 Berdasarkan Revenue"
             )
-            fig_treemap.update_traces(
-                texttemplate="<b>%{label}</b><br>%{value:.2f} M"
+
+            fig_top_up3.update_traces(
+                texttemplate="%{text:.2f} M",
+                textposition="outside",
+                hovertemplate="<b>%{y}</b><br>Revenue: %{x:.2f} M<extra></extra>"
             )
-            fig_treemap.update_layout(height=430)
-            st.plotly_chart(fig_treemap, use_container_width=True)
 
-        st.markdown('<div class="section-title">Top UP3 Berdasarkan Revenue</div>', unsafe_allow_html=True)
+            fig_top_up3.update_layout(
+                height=500,
+                xaxis_title="Revenue (Miliar Rp)",
+                yaxis_title="",
+                margin=dict(t=60, l=10, r=10, b=10)
+            )
 
-        rekap_up3_chart = (
-            df_filtered.groupby("UP3", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
-            .sum()
-            .reset_index()
-            .sort_values("Nominal Kontrak / Revenue (Rp)", ascending=False)
-            .head(10)
-        )
-        rekap_up3_chart["Revenue_M"] = rekap_up3_chart["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+            st.plotly_chart(fig_top_up3, use_container_width=True)
 
-        fig_top_up3 = px.bar(
-            rekap_up3_chart.sort_values("Revenue_M", ascending=True),
-            x="Revenue_M",
-            y="UP3",
-            orientation="h",
-            text="Revenue_M",
-            color="Revenue_M",
-            color_continuous_scale="Viridis",
-            title="Top 10 UP3 Berdasarkan Revenue"
-        )
-        fig_top_up3.update_traces(
-            texttemplate="%{text:.2f} M",
-            textposition="outside",
-            hovertemplate="<b>%{y}</b><br>Revenue: %{x:.2f} M<extra></extra>"
-        )
-        fig_top_up3.update_layout(
-            height=500,
-            xaxis_title="Revenue (Miliar Rp)",
-            yaxis_title=""
-        )
-        st.plotly_chart(fig_top_up3, use_container_width=True)
-
+    # =====================================================
+    # TAB 2 ANALISIS
+    # =====================================================
     with tab2:
-        st.markdown('<div class="section-title">Pipeline dan Komposisi Status</div>', unsafe_allow_html=True)
-
-        # Bar Klaster
-        rekap_klaster_bar = rekap_klaster.copy().sort_values("Revenue_M", ascending=False)
+        st.markdown('<div class="section-title">Analisis Pipeline dan Komposisi Revenue</div>', unsafe_allow_html=True)
 
         c3, c4 = st.columns(2)
 
         with c3:
-            fig_klaster_bar = px.bar(
-                rekap_klaster_bar,
-                x="Klaster Produk",
-                y="Revenue_M",
-                text="Revenue_M",
-                color="Klaster Produk",
-                title="Revenue per Klaster Produk"
-            )
-            fig_klaster_bar.update_traces(
-                texttemplate="%{text:.2f} M",
-                textposition="outside"
-            )
-            fig_klaster_bar.update_layout(
-                height=450,
-                yaxis_title="Revenue (Miliar Rp)",
-                xaxis_title=""
-            )
-            st.plotly_chart(fig_klaster_bar, use_container_width=True)
+            if rekap_klaster.empty or rekap_klaster["Revenue_M"].sum() <= 0:
+                st.info("Belum ada data revenue klaster yang dapat divisualisasikan.")
+            else:
+                fig_klaster_bar = px.bar(
+                    rekap_klaster,
+                    x="Klaster Produk",
+                    y="Revenue_M",
+                    text="Revenue_M",
+                    color="Klaster Produk",
+                    title="Revenue per Klaster Produk"
+                )
+
+                fig_klaster_bar.update_traces(
+                    texttemplate="%{text:.2f} M",
+                    textposition="outside"
+                )
+
+                fig_klaster_bar.update_layout(
+                    height=450,
+                    yaxis_title="Revenue (Miliar Rp)",
+                    xaxis_title="",
+                    margin=dict(t=60, l=10, r=10, b=10)
+                )
+
+                st.plotly_chart(fig_klaster_bar, use_container_width=True)
 
         with c4:
-            rekap_status = (
-                df_filtered.groupby("Status Terupdate", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
-                .sum()
-                .reset_index()
-                .sort_values("Nominal Kontrak / Revenue (Rp)", ascending=False)
-            )
-            rekap_status["Revenue_M"] = rekap_status["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+            if rekap_status.empty or rekap_status["Revenue_M"].sum() <= 0:
+                st.info("Belum ada data revenue status yang dapat divisualisasikan.")
+            else:
+                fig_status = px.bar(
+                    rekap_status,
+                    x="Status Terupdate",
+                    y="Revenue_M",
+                    text="Revenue_M",
+                    color="Status Terupdate",
+                    title="Komposisi Revenue per Status"
+                )
 
-            fig_status = px.bar(
-                rekap_status,
-                x="Status Terupdate",
-                y="Revenue_M",
-                text="Revenue_M",
-                color="Status Terupdate",
-                title="Komposisi Revenue per Status"
-            )
-            fig_status.update_traces(
-                texttemplate="%{text:.2f} M",
-                textposition="outside"
-            )
-            fig_status.update_layout(
-                height=450,
-                yaxis_title="Revenue (Miliar Rp)",
-                xaxis_title=""
-            )
-            st.plotly_chart(fig_status, use_container_width=True)
+                fig_status.update_traces(
+                    texttemplate="%{text:.2f} M",
+                    textposition="outside"
+                )
+
+                fig_status.update_layout(
+                    height=450,
+                    yaxis_title="Revenue (Miliar Rp)",
+                    xaxis_title="",
+                    margin=dict(t=60, l=10, r=10, b=10)
+                )
+
+                st.plotly_chart(fig_status, use_container_width=True)
 
         st.markdown('<div class="section-title">Rekap Revenue per UP3</div>', unsafe_allow_html=True)
 
-        rekap_up3 = (
-            df_filtered
-            .groupby("UP3", dropna=False)
-            .agg(
-                Jumlah_Project=("UP3", "count"),
-                Total_Revenue_Rp=("Nominal Kontrak / Revenue (Rp)", "sum"),
-                Close_Won_Rp=("Close Won (Rp)", "sum"),
-                Potensi_Rp=("Potensi (Rp)", "sum")
-            )
-            .reset_index()
-        )
-
-        rekap_up3 = rekap_up3.sort_values(
-            by="Total_Revenue_Rp",
-            ascending=False
-        ).reset_index(drop=True)
-
-        rekap_up3.insert(0, "No", range(1, len(rekap_up3) + 1))
-        rekap_up3["Total Revenue"] = rekap_up3["Total_Revenue_Rp"].apply(format_miliar)
-        rekap_up3["Close Won"] = rekap_up3["Close_Won_Rp"].apply(format_miliar)
-        rekap_up3["Potensi"] = rekap_up3["Potensi_Rp"].apply(format_miliar)
+        rekap_up3_tampil = rekap_up3.copy()
+        rekap_up3_tampil.insert(0, "No", range(1, len(rekap_up3_tampil) + 1))
+        rekap_up3_tampil["Total Revenue"] = rekap_up3_tampil["Total_Revenue_Rp"].apply(format_miliar)
+        rekap_up3_tampil["Close Won"] = rekap_up3_tampil["Close_Won_Rp"].apply(format_miliar)
+        rekap_up3_tampil["Potensi"] = rekap_up3_tampil["Potensi_Rp"].apply(format_miliar)
 
         st.dataframe(
-            rekap_up3[
+            rekap_up3_tampil[
                 ["No", "UP3", "Jumlah_Project", "Total Revenue", "Close Won", "Potensi"]
             ],
             use_container_width=True,
@@ -589,6 +654,7 @@ if not df.empty:
         )
 
         st.subheader("🤖 AI Executive Summary")
+
         if st.button("Generate Narasi Evaluasi dengan AI"):
             if model is None:
                 st.warning("API Key Gemini belum diisi. Silakan isi GEMINI_API_KEY di Streamlit Secrets atau langsung di kode.")
@@ -599,6 +665,8 @@ if not df.empty:
                     Total Revenue: {format_miliar(total_revenue)}
                     Close Won: {format_miliar(total_won)}
                     Potensi: {format_miliar(total_potensi)}
+                    Rasio Close Won: {won_ratio:.1f}%
+                    Rasio Potensi: {potensi_ratio:.1f}%
 
                     Rekap Klaster:
                     {rekap_klaster.to_dict(orient='records')}
@@ -606,8 +674,11 @@ if not df.empty:
                     Rekap Anak Perusahaan:
                     {rekap_anak.to_dict(orient='records')}
 
+                    Rekap Status:
+                    {rekap_status.to_dict(orient='records')}
+
                     Rekap UP3:
-                    {rekap_up3.to_dict(orient='records')}
+                    {rekap_up3_tampil.to_dict(orient='records')}
                     """
 
                     prompt = f"""
@@ -627,6 +698,9 @@ if not df.empty:
                     response = model.generate_content(prompt)
                     st.info(response.text)
 
+    # =====================================================
+    # TAB 3 DETAIL DATA
+    # =====================================================
     with tab3:
         st.markdown('<div class="section-title">Data Detail</div>', unsafe_allow_html=True)
 
@@ -649,7 +723,7 @@ if not df.empty:
             df_tampil["Potensi (Rp)"] / 1_000_000_000
         )
 
-        search_nama = st.text_input("🔍 Cari Nama Pelanggan / Produk", "")
+        search_nama = st.text_input("🔍 Cari Nama Pelanggan / Produk / UP3 / Status", "")
 
         if search_nama:
             df_tampil = df_tampil[
@@ -666,6 +740,7 @@ if not df.empty:
         )
 
         csv = df_tampil.to_csv(index=False).encode("utf-8")
+
         st.download_button(
             label="⬇️ Download Data Filtered (CSV)",
             data=csv,
