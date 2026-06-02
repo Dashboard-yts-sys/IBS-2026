@@ -7,7 +7,7 @@ from io import BytesIO
 
 # Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="Dashboard IBS UID Jatim", layout="wide")
-st.title("📊 Dashboard Revenue & Potensi IBS")
+st.title("📊 Dashboard IBS 2026 UID Jatim")
 
 # 1. Setup API Google AI Studio (Gemini)
 genai.configure(api_key="MASUKKAN_API_KEY_ANDA_DISINI")
