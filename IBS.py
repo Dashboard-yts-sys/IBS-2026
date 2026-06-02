@@ -5,29 +5,96 @@ import google.generativeai as genai
 import requests
 from io import BytesIO
 
-# Konfigurasi Halaman Streamlit
-st.set_page_config(page_title="Dashboard IBS UID Jatim", layout="wide")
+# =========================
+# KONFIGURASI HALAMAN
+# =========================
+st.set_page_config(
+    page_title="Dashboard IBS 2026 UID Jatim",
+    layout="wide"
+)
+
 st.title("📊 Dashboard IBS 2026 UID Jatim")
 
-# 1. Setup API Google AI Studio (Gemini)
-genai.configure(api_key="MASUKKAN_API_KEY_ANDA_DISINI")
-model = genai.GenerativeModel('gemini-1.5-flash')
 
-# 2. Fungsi Load Data dari Google Sheets
+# =========================
+# FUNGSI FORMAT ANGKA
+# =========================
+def format_miliar(value):
+    try:
+        value = float(value)
+        return f"Rp {value / 1_000_000_000:,.2f} M"
+    except:
+        return "Rp 0,00 M"
+
+
+def format_angka(value):
+    try:
+        return f"{float(value):,.0f}"
+    except:
+        return "0"
+
+
+def clean_rupiah(value):
+    """
+    Membersihkan format rupiah dari Google Sheets.
+    Contoh:
+    799.344.000,00 -> 799344000
+    Rp 799.344.000,00 -> 799344000
+    """
+    if pd.isna(value):
+        return 0
+
+    if isinstance(value, (int, float)):
+        return value
+
+    value = str(value)
+    value = value.replace("Rp", "")
+    value = value.replace(" ", "")
+    value = value.replace(".", "")
+    value = value.replace(",", ".")
+    value = value.strip()
+
+    return pd.to_numeric(value, errors="coerce")
+
+
+# =========================
+# SETUP GEMINI
+# =========================
+# Lebih aman pakai st.secrets di Streamlit Cloud.
+# Jika belum pakai secrets, isi langsung API key di bawah.
+try:
+    GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+except:
+    GEMINI_API_KEY = "MASUKKAN_API_KEY_ANDA_DISINI"
+
+if GEMINI_API_KEY != "MASUKKAN_API_KEY_ANDA_DISINI":
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+else:
+    model = None
+
+
+# =========================
+# LOAD DATA GOOGLE SHEETS
+# =========================
 @st.cache_data(ttl=600)
 def load_data_from_gsheets():
     sheet_id = "1f4uh89R_DTC1qAAJxsBvcDIgKvsMt4yq_sJQNBd9jAw"
 
-    # Link export Excel, bukan link edit Google Sheets
+    # Link export Excel
     export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
 
     try:
         response = requests.get(export_url)
         response.raise_for_status()
 
-        # Validasi sederhana agar tidak membaca HTML sebagai Excel
-        if "text/html" in response.headers.get("Content-Type", ""):
-            st.error("Google Sheets belum bisa diakses publik. Ubah akses menjadi: Siapa saja yang memiliki link - Viewer.")
+        content_type = response.headers.get("Content-Type", "")
+
+        if "text/html" in content_type:
+            st.error(
+                "Google Sheets belum bisa diakses publik. "
+                "Ubah akses menjadi: Siapa saja yang memiliki link - Viewer."
+            )
             return pd.DataFrame()
 
         xls = pd.ExcelFile(BytesIO(response.content), engine="openpyxl")
@@ -43,7 +110,7 @@ def load_data_from_gsheets():
         for sheet in target_sheets:
             if sheet in xls.sheet_names:
                 temp_df = pd.read_excel(xls, sheet_name=sheet, engine="openpyxl")
-                temp_df["Source Sheet"] = sheet
+                temp_df["SOURCE_SHEET"] = sheet
                 df_list.append(temp_df)
 
         if not df_list:
@@ -52,39 +119,55 @@ def load_data_from_gsheets():
 
         df = pd.concat(df_list, ignore_index=True)
 
-        # Hapus baris kosong
+        # Bersihkan nama kolom
+        df.columns = df.columns.astype(str).str.strip()
+
+        # Hapus baris kosong total
         df = df.dropna(how="all")
 
+        # Kolom utama
         col_nominal = "Nominal Kontrak / Revenue (Rp)"
         col_status = "Status Terupdate"
+        col_up3 = "UP3"
+        col_klaster = "Klaster Produk"
+        col_anak_perusahaan = "ANAK PERUSAHAAN"
 
-        # Pastikan kolom tersedia
-        required_cols = [col_nominal, col_status, "UP3", "Klaster Produk"]
+        required_cols = [
+            col_nominal,
+            col_status,
+            col_up3,
+            col_klaster,
+            col_anak_perusahaan
+        ]
+
         missing_cols = [col for col in required_cols if col not in df.columns]
 
         if missing_cols:
-            st.error(f"Kolom berikut belum ditemukan di file: {missing_cols}")
+            st.error(f"Kolom berikut belum ditemukan di Google Sheets: {missing_cols}")
+            st.write("Kolom yang terbaca:", list(df.columns))
             return pd.DataFrame()
 
-        # Bersihkan nominal agar bisa dijumlahkan
-        df[col_nominal] = (
-            df[col_nominal]
-            .astype(str)
-            .str.replace(".", "", regex=False)
-            .str.replace(",", ".", regex=False)
-            .str.replace("Rp", "", regex=False)
-            .str.strip()
-        )
-
+        # Bersihkan kolom nominal
+        df[col_nominal] = df[col_nominal].apply(clean_rupiah)
         df[col_nominal] = pd.to_numeric(df[col_nominal], errors="coerce").fillna(0)
 
-        # Bersihkan status
+        # Bersihkan kolom teks
         df[col_status] = df[col_status].astype(str).str.strip()
+        df[col_up3] = df[col_up3].astype(str).str.strip()
+        df[col_klaster] = df[col_klaster].astype(str).str.strip()
+        df[col_anak_perusahaan] = df[col_anak_perusahaan].astype(str).str.strip()
 
+        # Hapus baris tanpa nama pelanggan atau tanpa data penting
+        if "Nama Pelanggan" in df.columns:
+            df = df[df["Nama Pelanggan"].notna()]
+
+        # Status klasifikasi
         status_won = [
             "Dealing",
             "Pelaksanaan Pekerjaan",
-            "Closing / selesai Pekerjaan"
+            "Closing / selesai Pekerjaan",
+            "Closing",
+            "Selesai Pekerjaan"
         ]
 
         status_potensi = [
@@ -109,66 +192,90 @@ def load_data_from_gsheets():
         st.error(f"Gagal mengambil data dari Google Sheets. Error: {e}")
         return pd.DataFrame()
 
-# Panggil fungsi data
+
+# =========================
+# PANGGIL DATA
+# =========================
 df = load_data_from_gsheets()
 
+
+# =========================
+# DASHBOARD
+# =========================
 if not df.empty:
-    # 3. SIDEBAR UNTUK FILTER
-    # 3. SIDEBAR UNTUK FILTER
+
+    # =========================
+    # SIDEBAR FILTER
+    # =========================
     st.sidebar.header("Filter Data")
-    
+
     pilih_up3 = st.sidebar.multiselect(
         "Pilih UP3:",
         options=sorted(df["UP3"].dropna().unique())
     )
-    
+
     pilih_klaster = st.sidebar.multiselect(
         "Pilih Klaster Produk:",
         options=sorted(df["Klaster Produk"].dropna().unique())
     )
-    
+
     pilih_anak_perusahaan = st.sidebar.multiselect(
         "Pilih Anak Perusahaan / Subholding:",
         options=sorted(df["ANAK PERUSAHAAN"].dropna().unique())
     )
-    
+
+    pilih_status = st.sidebar.multiselect(
+        "Pilih Status Terupdate:",
+        options=sorted(df["Status Terupdate"].dropna().unique())
+    )
+
     df_filtered = df.copy()
-    
+
     if pilih_up3:
         df_filtered = df_filtered[df_filtered["UP3"].isin(pilih_up3)]
-    
+
     if pilih_klaster:
         df_filtered = df_filtered[df_filtered["Klaster Produk"].isin(pilih_klaster)]
-    
+
     if pilih_anak_perusahaan:
         df_filtered = df_filtered[df_filtered["ANAK PERUSAHAAN"].isin(pilih_anak_perusahaan)]
-    # 4. TAMPILAN METRIK UTAMA (KPI)
-    # 4. TAMPILAN METRIK UTAMA (KPI)
+
+    if pilih_status:
+        df_filtered = df_filtered[df_filtered["Status Terupdate"].isin(pilih_status)]
+
+
+    # =========================
+    # KPI UTAMA
+    # =========================
     total_project = len(df_filtered)
     total_revenue = df_filtered["Nominal Kontrak / Revenue (Rp)"].sum()
     total_won = df_filtered["Close Won (Rp)"].sum()
     total_potensi = df_filtered["Potensi (Rp)"].sum()
-    
+
     col1, col2, col3, col4 = st.columns(4)
-    
+
     col1.metric("Total Project", f"{total_project:,.0f} Unit")
     col2.metric("Total Revenue", format_miliar(total_revenue))
     col3.metric("Close Won", format_miliar(total_won))
     col4.metric("Potensi", format_miliar(total_potensi))
-    
-    # 5. VISUALISASI GRAFIK
-    # 5. VISUALISASI GRAFIK
+
+
+    # =========================
+    # GRAFIK KLASTER PRODUK
+    # =========================
     st.subheader("Distribusi Revenue per Klaster Produk")
-    
+
     rekap_klaster = (
         df_filtered
-        .groupby("Klaster Produk")["Nominal Kontrak / Revenue (Rp)"]
+        .groupby("Klaster Produk", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
         .sum()
         .reset_index()
     )
-    
-    rekap_klaster["Revenue (Miliar Rp)"] = rekap_klaster["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
-    
+
+    rekap_klaster["Revenue (Miliar Rp)"] = (
+        rekap_klaster["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+    )
+
     fig1 = px.bar(
         rekap_klaster,
         x="Klaster Produk",
@@ -176,13 +283,156 @@ if not df.empty:
         color="Klaster Produk",
         text=rekap_klaster["Revenue (Miliar Rp)"].apply(lambda x: f"{x:,.2f} M")
     )
-    
+
     fig1.update_traces(textposition="outside")
-    
+
     fig1.update_layout(
         yaxis_title="Revenue (Miliar Rp)",
         xaxis_title="Klaster Produk",
-        showlegend=True
+        showlegend=True,
+        height=500
     )
-    
+
     st.plotly_chart(fig1, use_container_width=True)
+
+
+    # =========================
+    # GRAFIK ANAK PERUSAHAAN
+    # =========================
+    st.subheader("Distribusi Revenue per Anak Perusahaan / Subholding")
+
+    rekap_anak = (
+        df_filtered
+        .groupby("ANAK PERUSAHAAN", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
+        .sum()
+        .reset_index()
+        .sort_values("Nominal Kontrak / Revenue (Rp)", ascending=False)
+    )
+
+    rekap_anak["Revenue (Miliar Rp)"] = (
+        rekap_anak["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+    )
+
+    fig2 = px.bar(
+        rekap_anak,
+        x="ANAK PERUSAHAAN",
+        y="Revenue (Miliar Rp)",
+        color="ANAK PERUSAHAAN",
+        text=rekap_anak["Revenue (Miliar Rp)"].apply(lambda x: f"{x:,.2f} M")
+    )
+
+    fig2.update_traces(textposition="outside")
+
+    fig2.update_layout(
+        yaxis_title="Revenue (Miliar Rp)",
+        xaxis_title="Anak Perusahaan / Subholding",
+        showlegend=True,
+        height=500
+    )
+
+    st.plotly_chart(fig2, use_container_width=True)
+
+
+    # =========================
+    # REKAP PER UP3
+    # =========================
+    st.subheader("Rekap Revenue per UP3")
+
+    rekap_up3 = (
+        df_filtered
+        .groupby("UP3", dropna=False)
+        .agg(
+            Jumlah_Project=("UP3", "count"),
+            Total_Revenue_Rp=("Nominal Kontrak / Revenue (Rp)", "sum"),
+            Close_Won_Rp=("Close Won (Rp)", "sum"),
+            Potensi_Rp=("Potensi (Rp)", "sum")
+        )
+        .reset_index()
+        .sort_values("Total_Revenue_Rp", ascending=False)
+    )
+
+    rekap_up3["Total Revenue"] = rekap_up3["Total_Revenue_Rp"].apply(format_miliar)
+    rekap_up3["Close Won"] = rekap_up3["Close_Won_Rp"].apply(format_miliar)
+    rekap_up3["Potensi"] = rekap_up3["Potensi_Rp"].apply(format_miliar)
+
+    st.dataframe(
+        rekap_up3[
+            [
+                "UP3",
+                "Jumlah_Project",
+                "Total Revenue",
+                "Close Won",
+                "Potensi"
+            ]
+        ],
+        use_container_width=True
+    )
+
+
+    # =========================
+    # AI EXECUTIVE SUMMARY
+    # =========================
+    st.subheader("🤖 AI Executive Summary")
+
+    if st.button("Generate Narasi Evaluasi dengan AI"):
+        if model is None:
+            st.warning("API Key Gemini belum diisi. Silakan isi GEMINI_API_KEY di Streamlit Secrets atau langsung di kode.")
+        else:
+            with st.spinner("Menganalisis data..."):
+                data_ringkas = f"""
+                Total Project: {total_project}
+                Total Revenue: {format_miliar(total_revenue)}
+                Close Won: {format_miliar(total_won)}
+                Potensi: {format_miliar(total_potensi)}
+
+                Rekap Klaster:
+                {rekap_klaster.to_dict(orient='records')}
+
+                Rekap Anak Perusahaan:
+                {rekap_anak.to_dict(orient='records')}
+
+                Rekap UP3:
+                {rekap_up3.to_dict(orient='records')}
+                """
+
+                prompt = f"""
+                Berdasarkan data performa IBS UID Jawa Timur berikut:
+                {data_ringkas}
+
+                Buatkan narasi executive summary singkat, analitis, dan terstruktur untuk manajemen.
+                Gunakan bahasa Indonesia formal.
+                Fokus pada:
+                1. Gambaran pencapaian revenue dan close won.
+                2. Klaster produk yang dominan.
+                3. Peran anak perusahaan/subholding.
+                4. Potensi yang perlu dikonversi menjadi close won.
+                5. Rekomendasi tindak lanjut strategis.
+                """
+
+                response = model.generate_content(prompt)
+                st.info(response.text)
+
+
+    # =========================
+    # DATA DETAIL
+    # =========================
+    st.subheader("Data Detail")
+
+    df_tampil = df_filtered.copy()
+
+    df_tampil["Nominal Revenue (Miliar Rp)"] = (
+        df_tampil["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+    )
+
+    df_tampil["Close Won (Miliar Rp)"] = (
+        df_tampil["Close Won (Rp)"] / 1_000_000_000
+    )
+
+    df_tampil["Potensi (Miliar Rp)"] = (
+        df_tampil["Potensi (Rp)"] / 1_000_000_000
+    )
+
+    st.dataframe(df_tampil, use_container_width=True)
+
+else:
+    st.warning("Data belum berhasil dimuat.")
