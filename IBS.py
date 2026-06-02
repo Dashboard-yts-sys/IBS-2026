@@ -7,7 +7,7 @@ from io import BytesIO
 
 # Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="Dashboard IBS UID Jatim", layout="wide")
-st.title("📊 Dashboard Rekapitulasi Penjualan & Potensi IBS")
+st.title("📊 Dashboard Revenue & Potensi IBS")
 
 # 1. Setup API Google AI Studio (Gemini)
 genai.configure(api_key="MASUKKAN_API_KEY_ANDA_DISINI")
@@ -18,8 +18,8 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 def load_data_from_gsheets():
     # Mengambil ID dari link Google Drive Anda
     sheet_id = "1f4uh89R_DTC1qAAJxsBvcDIgKvsMt4yq_sJONBd9jAw"
-    export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
-    
+    export_url = f"    https://docs.google.com/spreadsheets/d/1f4uh89R_DTC1qAAJxsBvcDIgKvsMt4yq_sJQNBd9jAw/edit?gid=39602971#gid=39602971"
+
     try:
         # Mengunduh data spreadsheet ke memori
         response = requests.get(export_url)
