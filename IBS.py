@@ -4,6 +4,8 @@ import plotly.express as px
 import google.generativeai as genai
 import requests
 from io import BytesIO
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # =====================================================
 # KONFIGURASI HALAMAN
@@ -113,10 +115,28 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # =====================================================
 # FUNGSI BANTUAN
 # =====================================================
+def waktu_update_wib():
+    bulan_id = {
+        1: "Januari",
+        2: "Februari",
+        3: "Maret",
+        4: "April",
+        5: "Mei",
+        6: "Juni",
+        7: "Juli",
+        8: "Agustus",
+        9: "September",
+        10: "Oktober",
+        11: "November",
+        12: "Desember"
+    }
+
+    waktu = datetime.now(ZoneInfo("Asia/Jakarta"))
+    return f"{waktu.day:02d} {bulan_id[waktu.month]} {waktu.year}, {waktu.hour:02d}:{waktu.minute:02d} WIB"
+    
 def format_miliar(value):
     try:
         value = float(value)
@@ -169,7 +189,6 @@ def bersihkan_teks_kosong(series):
         .replace(["nan", "None", "NaN", "", "-", "0"], "Belum Terisi")
     )
 
-
 # =====================================================
 # SETUP GEMINI
 # =====================================================
@@ -183,7 +202,6 @@ if GEMINI_API_KEY != "MASUKKAN_API_KEY_ANDA_DISINI":
     model = genai.GenerativeModel("gemini-1.5-flash")
 else:
     model = None
-
 
 # =====================================================
 # LOAD DATA GOOGLE SHEETS
@@ -366,11 +384,15 @@ if not df.empty:
     avg_project = (total_revenue / total_project) if total_project > 0 else 0
 
     st.markdown(
-        """
+        f"""
         <div class="hero-box">
             <div class="hero-title">📊 Dashboard IBS 2026 UID Jatim</div>
             <div class="hero-subtitle">
                 Monitoring Revenue, Close Won, Potensi, Klaster Produk, Anak Perusahaan/Subholding, dan Project IBS.
+                <br>
+                <span style="font-size:0.92rem; opacity:0.95;">
+                    🕒 Update dashboard: <b>{last_update}</b>
+                </span>
             </div>
         </div>
         """,
@@ -412,13 +434,26 @@ if not df.empty:
         )
 
     st.markdown(
-        """
+        f"""
         <div class="mini-note">
         💡 <b>Insight cepat:</b> gunakan filter di sisi kiri untuk memantau performa per UP3, klaster produk, anak perusahaan/subholding, dan status pipeline.
+        <br>
+        🕒 <b>Data terakhir dimuat:</b> {last_update}
         </div>
         """,
         unsafe_allow_html=True
     )
+
+    total_project = len(df_filtered)
+    total_revenue = df_filtered["Nominal Kontrak / Revenue (Rp)"].sum()
+    total_won = df_filtered["Close Won (Rp)"].sum()
+    total_potensi = df_filtered["Potensi (Rp)"].sum()
+    
+    won_ratio = (total_won / total_revenue * 100) if total_revenue > 0 else 0
+    potensi_ratio = (total_potensi / total_revenue * 100) if total_revenue > 0 else 0
+    avg_project = (total_revenue / total_project) if total_project > 0 else 0
+    
+    last_update = waktu_update_wib()
 
     # =====================================================
     # DATA REKAP DASAR
