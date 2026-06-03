@@ -378,10 +378,13 @@ if not df.empty:
     total_revenue = df_filtered["Nominal Kontrak / Revenue (Rp)"].sum()
     total_won = df_filtered["Close Won (Rp)"].sum()
     total_potensi = df_filtered["Potensi (Rp)"].sum()
-
+    
     won_ratio = (total_won / total_revenue * 100) if total_revenue > 0 else 0
     potensi_ratio = (total_potensi / total_revenue * 100) if total_revenue > 0 else 0
     avg_project = (total_revenue / total_project) if total_project > 0 else 0
+    
+    # Tambahan waktu update dashboard
+    last_update = waktu_update_wib()
 
     st.markdown(
         f"""
@@ -443,17 +446,6 @@ if not df.empty:
         """,
         unsafe_allow_html=True
     )
-
-    total_project = len(df_filtered)
-    total_revenue = df_filtered["Nominal Kontrak / Revenue (Rp)"].sum()
-    total_won = df_filtered["Close Won (Rp)"].sum()
-    total_potensi = df_filtered["Potensi (Rp)"].sum()
-    
-    won_ratio = (total_won / total_revenue * 100) if total_revenue > 0 else 0
-    potensi_ratio = (total_potensi / total_revenue * 100) if total_revenue > 0 else 0
-    avg_project = (total_revenue / total_project) if total_project > 0 else 0
-    
-    last_update = waktu_update_wib()
 
     # =====================================================
     # DATA REKAP DASAR
