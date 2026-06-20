@@ -389,7 +389,8 @@ if not df.empty:
     st.markdown(
         f"""
         <div class="hero-box">
-            <div class="hero-title">📊 Dashboard IBS 2026 UID Jatim</div>
+            <div class="hero-title">📊 Dashboard COREBOOST 2.0 UID JATIM</div>
+            <div class="hero-title">Integrated Bussines Solution (IBS) 2026</div>
             <div class="hero-subtitle">
                 Monitoring Revenue, Close Won, Potensi, Klaster Produk, Anak Perusahaan/Subholding, dan Project IBS.
                 <br>
