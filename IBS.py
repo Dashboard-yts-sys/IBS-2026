@@ -39,17 +39,26 @@ st.markdown("""
         box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     }
 
-    .hero-title {
-        font-size: 2.1rem;
-        font-weight: 800;
-        margin-bottom: 6px;
+    .hero-title-main {
+        font-size: 2.8rem;
+        font-weight: 900;
+        line-height: 1.15;
+        margin-bottom: 10px;
+        letter-spacing: 0.3px;
     }
-
-    .hero-subtitle {
-        font-size: 1rem;
+    
+    .hero-title-sub {
+        font-size: 1.45rem;
+        font-weight: 700;
+        line-height: 1.25;
+        margin-bottom: 10px;
         opacity: 0.95;
     }
-
+    
+    .hero-subtitle {
+        font-size: 0.95rem;
+        opacity: 0.92;
+    }
     .section-title {
         font-size: 1.35rem;
         font-weight: 700;
@@ -389,8 +398,8 @@ if not df.empty:
     st.markdown(
         f"""
         <div class="hero-box">
-            <div class="hero-title">📊 Dashboard COREBOOST 2.0 UID JATIM</div>
-            <div class="hero-title">Integrated Bussines Solution (IBS) 2026</div>
+            <div class="hero-title-main">📊 Dashboard COREBOOST 2.0 UID JATIM</div>
+            <div class="hero-title-sub">Integrated Bussines Solution (IBS) 2026</div>
             <div class="hero-subtitle">
                 Monitoring Revenue, Close Won, Potensi, Klaster Produk, Anak Perusahaan/Subholding, dan Project IBS.
                 <br>
