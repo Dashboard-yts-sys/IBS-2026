@@ -48,7 +48,7 @@ st.markdown("""
     }
     
     .hero-title-sub {
-        font-size: 1.5 rem;
+        font-size: 1.45rem;
         font-weight: 700;
         line-height: 1.25;
         margin-bottom: 10px;
