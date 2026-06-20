@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 # KONFIGURASI HALAMAN
 # =====================================================
 st.set_page_config(
-    page_title="Dashboard IBS 2026 UID Jatim",
+    page_title="Dashboard COREBOOST 2.0 UID JATIM",
     layout="wide"
 )
 
