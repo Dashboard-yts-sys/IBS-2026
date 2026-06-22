@@ -59,6 +59,7 @@ st.markdown("""
         font-size: 0.95rem;
         opacity: 0.92;
     }
+
     .section-title {
         font-size: 1.35rem;
         font-weight: 700;
@@ -145,13 +146,21 @@ def waktu_update_wib():
 
     waktu = datetime.now(ZoneInfo("Asia/Jakarta"))
     return f"{waktu.day:02d} {bulan_id[waktu.month]} {waktu.year}, {waktu.hour:02d}:{waktu.minute:02d} WIB"
-    
+
+
 def format_miliar(value):
+    """
+    Format angka menjadi miliar dengan format Indonesia.
+    Contoh:
+    66860482197 -> Rp 66,86 M
+    """
     try:
-        value = float(value)
-        return f"Rp {value / 1_000_000_000:,.2f} M"
+        value = float(value) / 1_000_000_000
+        hasil = f"{value:,.2f}"
+        hasil = hasil.replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"Rp {hasil} M"
     except:
-        return "Rp 0.00 M"
+        return "Rp 0,00 M"
 
 
 def clean_rupiah(value):
@@ -177,6 +186,33 @@ def clean_rupiah(value):
     return pd.to_numeric(value, errors="coerce")
 
 
+def format_akuntansi(value, desimal=2):
+    """
+    Format angka menjadi format akuntansi Indonesia:
+    titik sebagai pemisah ribuan dan koma sebagai pemisah desimal.
+    Contoh:
+    252717225 -> 252.717.225,00
+    167480000 -> 167.480.000,00
+    0 -> 0,00
+    """
+    try:
+        if pd.isna(value):
+            return "0,00"
+
+        # Jika angka masih berbentuk teks seperti Rp 252.717.225,00
+        if isinstance(value, str):
+            value = clean_rupiah(value)
+
+        value = float(value)
+
+        hasil = f"{value:,.{desimal}f}"
+        hasil = hasil.replace(",", "X").replace(".", ",").replace("X", ".")
+
+        return hasil
+    except:
+        return "0,00"
+
+
 def metric_card(title, value, subtitle, css_class):
     st.markdown(
         f"""
@@ -198,6 +234,7 @@ def bersihkan_teks_kosong(series):
         .replace(["nan", "None", "NaN", "", "-", "0"], "Belum Terisi")
     )
 
+
 # =====================================================
 # SETUP GEMINI
 # =====================================================
@@ -211,6 +248,7 @@ if GEMINI_API_KEY != "MASUKKAN_API_KEY_ANDA_DISINI":
     model = genai.GenerativeModel("gemini-1.5-flash")
 else:
     model = None
+
 
 # =====================================================
 # LOAD DATA GOOGLE SHEETS
@@ -285,6 +323,16 @@ def load_data_from_gsheets():
         # Bersihkan nominal
         df[col_nominal] = df[col_nominal].apply(clean_rupiah)
         df[col_nominal] = pd.to_numeric(df[col_nominal], errors="coerce").fillna(0)
+
+        # Bersihkan kolom Daya jika ada
+        if "Daya (VA)" in df.columns:
+            df["Daya (VA)"] = df["Daya (VA)"].apply(clean_rupiah)
+            df["Daya (VA)"] = pd.to_numeric(df["Daya (VA)"], errors="coerce").fillna(0)
+
+        # Bersihkan kolom Nominal Revenue jika ada
+        if "Nominal Revenue (Rp)" in df.columns:
+            df["Nominal Revenue (Rp)"] = df["Nominal Revenue (Rp)"].apply(clean_rupiah)
+            df["Nominal Revenue (Rp)"] = pd.to_numeric(df["Nominal Revenue (Rp)"], errors="coerce").fillna(0)
 
         # Bersihkan kolom teks
         df[col_status] = bersihkan_teks_kosong(df[col_status])
@@ -767,6 +815,10 @@ if not df.empty:
 
         df_tampil.insert(0, "No", range(1, len(df_tampil) + 1))
 
+        # Tambahan kolom nominal revenue jika belum ada
+        if "Nominal Revenue (Rp)" not in df_tampil.columns:
+            df_tampil["Nominal Revenue (Rp)"] = df_tampil["Nominal Kontrak / Revenue (Rp)"]
+
         df_tampil["Nominal Revenue (Miliar Rp)"] = (
             df_tampil["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
         )
@@ -789,12 +841,30 @@ if not df.empty:
                 )
             ]
 
+        # =====================================================
+        # FORMAT AKUNTANSI UNTUK TAMPILAN DATA DETAIL
+        # =====================================================
+        kolom_format_akuntansi = [
+            "Daya (VA)",
+            "Nominal Kontrak / Revenue (Rp)",
+            "Close Won (Rp)",
+            "Potensi (Rp)",
+            "Nominal Revenue (Rp)"
+        ]
+
+        df_tampil_display = df_tampil.copy()
+
+        for kolom in kolom_format_akuntansi:
+            if kolom in df_tampil_display.columns:
+                df_tampil_display[kolom] = df_tampil_display[kolom].apply(format_akuntansi)
+
         st.dataframe(
-            df_tampil,
+            df_tampil_display,
             use_container_width=True,
             hide_index=True
         )
 
+        # CSV tetap menggunakan data asli agar angka masih bisa dihitung di Excel
         csv = df_tampil.to_csv(index=False).encode("utf-8")
 
         st.download_button(
