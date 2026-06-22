@@ -446,7 +446,7 @@ if not df.empty:
     st.markdown(
         f"""
         <div class="hero-box">
-            <div class="hero-title-main">📊 Dashboard COREBOOST 2.0 UID JATIM</div>
+            <div class="hero-title-main">📊 Dashboard COREBOOST 2.0 UID JAWA TIMUR</div>
             <div class="hero-title-sub">Integrated Bussines Solution (IBS) 2026</div>
             <div class="hero-subtitle">
                 Monitoring Revenue, Close Won, Potensi, Klaster Produk, Anak Perusahaan/Subholding, dan Project IBS.
@@ -807,32 +807,46 @@ if not df.empty:
     # =====================================================
     with tab3:
         st.markdown('<div class="section-title">Data Detail</div>', unsafe_allow_html=True)
-
+    
         df_tampil = df_filtered.copy().reset_index(drop=True)
-
+    
         if "No" in df_tampil.columns:
             df_tampil = df_tampil.drop(columns=["No"])
-
+    
         df_tampil.insert(0, "No", range(1, len(df_tampil) + 1))
-
-        # Tambahan kolom nominal revenue jika belum ada
-        if "Nominal Revenue (Rp)" not in df_tampil.columns:
-            df_tampil["Nominal Revenue (Rp)"] = df_tampil["Nominal Kontrak / Revenue (Rp)"]
-
-        df_tampil["Nominal Revenue (Miliar Rp)"] = (
-            df_tampil["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
-        )
-
-        df_tampil["Close Won (Miliar Rp)"] = (
-            df_tampil["Close Won (Rp)"] / 1_000_000_000
-        )
-
-        df_tampil["Potensi (Miliar Rp)"] = (
-            df_tampil["Potensi (Rp)"] / 1_000_000_000
-        )
-
+    
+        # =====================================================
+        # KOLOM DETAIL DISESUAIKAN DENGAN SOURCE GOOGLE SHEETS
+        # =====================================================
+        kolom_detail_source = [
+            "No",
+            "Nama Pelanggan",
+            "IDPEL",
+            "Daya (VA)",
+            "Nama Produk",
+            "Klaster Produk",
+            "ANAK PERUSAHAAN",
+            "UP3",
+            "ULP",
+            "Nama PIC/PAE",
+            "No. WA PIC / PAE",
+            "Nominal Kontrak / Revenue (Rp)",
+            "Status Terupdate",
+            "Kendala yang dihadapi",
+            "Bulan Kunjungan",
+            "TANGGAL PROBING\n(TGL/BLN/THN)",
+            "TANGGAL PENAWARAN\n(TGL/BLN/THN)",
+            "TANGGAL CLOSE WON\n(TGL/BLN/THN)",
+            "TANGGAL\nENERGIZE/SELESAI\nPEKERJAAN\n(TGL/BLN/THN)"
+        ]
+    
+        # Ambil hanya kolom yang benar-benar ada di dataframe
+        kolom_tersedia = [kolom for kolom in kolom_detail_source if kolom in df_tampil.columns]
+    
+        df_tampil = df_tampil[kolom_tersedia]
+    
         search_nama = st.text_input("🔍 Cari Nama Pelanggan / Produk / UP3 / Status", "")
-
+    
         if search_nama:
             df_tampil = df_tampil[
                 df_tampil.astype(str).apply(
@@ -840,39 +854,35 @@ if not df.empty:
                     axis=1
                 )
             ]
-
+    
         # =====================================================
         # FORMAT AKUNTANSI UNTUK TAMPILAN DATA DETAIL
         # =====================================================
         kolom_format_akuntansi = [
             "Daya (VA)",
-            "Nominal Kontrak / Revenue (Rp)",
-            "Close Won (Rp)",
-            "Potensi (Rp)",
-            "Nominal Revenue (Rp)"
+            "Nominal Kontrak / Revenue (Rp)"
         ]
-
+    
         df_tampil_display = df_tampil.copy()
-
+    
         for kolom in kolom_format_akuntansi:
             if kolom in df_tampil_display.columns:
                 df_tampil_display[kolom] = df_tampil_display[kolom].apply(format_akuntansi)
-
+    
         st.dataframe(
             df_tampil_display,
             use_container_width=True,
             hide_index=True
         )
-
-        # CSV tetap menggunakan data asli agar angka masih bisa dihitung di Excel
+    
+        # CSV tetap memakai data asli agar angka masih bisa dihitung di Excel
         csv = df_tampil.to_csv(index=False).encode("utf-8")
-
+    
         st.download_button(
             label="⬇️ Download Data Filtered (CSV)",
             data=csv,
             file_name="dashboard_ibs_filtered.csv",
             mime="text/csv"
         )
-
 else:
     st.warning("Data belum berhasil dimuat.")
