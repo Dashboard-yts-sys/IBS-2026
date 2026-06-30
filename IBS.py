@@ -278,7 +278,7 @@ def load_data_from_gsheets():
             "PNG", "MDR", "PSR", "GSK", "SDA", "SBU", "SBB", "SBS"
         ]
 
-        df_list = []
+        df_list = [];
 
         for sheet in target_sheets:
             if sheet in xls.sheet_names:
@@ -351,7 +351,7 @@ def load_data_from_gsheets():
             "Dealing",
             "Pelaksanaan Pekerjaan",
             "Closing / selesai Pekerjaan",
-            "Closing",
+            "Closing / selesai Pekerjaan",
             "Selesai Pekerjaan"
         ]
 
