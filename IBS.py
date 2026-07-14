@@ -1010,11 +1010,6 @@ kelompok produk, subholding/anak perusahaan, dan status pipeline.
 <div class="hero-card">
     <div class="hero-title">📊 Dashboard COREBOOST 2.0 UID JATIM</div>
     <div class="hero-subtitle">Integrated Business Solution (IBS) 2026</div>
-    <div class="hero-desc">
-        Dashboard eksekutif untuk memantau revenue, close won, potensi,
-        kelompok produk, kontribusi SHAP, performa UP3, dan status pipeline IBS
-        secara rapi, informatif, dan mudah dibaca.
-    </div>
     <div class="hero-pills">
         <div class="hero-pill">🕒 Update: {last_update}</div>
         <div class="hero-pill">🏢 Top UP3: {top_up3}</div>
