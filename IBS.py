@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import google.generativeai as genai
 import requests
 from io import BytesIO
@@ -29,7 +28,8 @@ PLOTLY_CONFIG = {
 # =====================================================
 # CUSTOM CSS
 # =====================================================
-st.markdown("""
+st.markdown(
+    """
 <style>
     :root {
         --navy: #071B3A;
@@ -38,308 +38,234 @@ st.markdown("""
         --green: #00A859;
         --yellow: #FFD200;
         --orange: #F97316;
-        --red: #EF4444;
         --purple: #8B5CF6;
-        --slate: #64748B;
+        --slate: #475569;
         --line: #D8E2EE;
-        --bg-soft: #F4F8FC;
-        --panel: #FFFFFF;
     }
 
     html, body, [class*="css"] {
         font-family: "Segoe UI", "Inter", Arial, sans-serif;
+        font-size: 16px;
     }
 
     .stApp {
         background:
-            radial-gradient(circle at 85% 12%, rgba(0,174,239,0.08), transparent 25%),
-            radial-gradient(circle at 15% 0%, rgba(0,91,172,0.07), transparent 20%),
-            linear-gradient(180deg, #F8FBFF 0%, #F2F7FB 42%, #FFFFFF 100%);
+            radial-gradient(circle at 88% 8%, rgba(0,174,239,0.10), transparent 25%),
+            radial-gradient(circle at 10% 5%, rgba(0,91,172,0.07), transparent 24%),
+            linear-gradient(180deg, #F8FBFF 0%, #F3F8FC 45%, #FFFFFF 100%);
     }
 
     .main .block-container {
         max-width: 1520px;
-        padding-top: 1rem;
+        padding-top: 1.1rem;
         padding-bottom: 2rem;
     }
 
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #EFF5FD 0%, #F7FAFD 100%);
-        border-right: 1px solid rgba(148,163,184,0.20);
+        border-right: 1px solid rgba(148,163,184,0.25);
     }
 
-    [data-testid="stSidebar"] .block-container {
-        padding-top: 1rem;
-    }
-
-    .sidebar-box {
-        padding: 10px 0 4px 0;
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] div {
+        font-size: 0.95rem;
     }
 
     .sidebar-title {
-        font-size: 1.2rem;
+        font-size: 1.25rem;
         font-weight: 900;
         color: var(--navy);
-        margin-bottom: 0.3rem;
+        margin-bottom: 0.35rem;
     }
 
     .sidebar-subtitle {
-        font-size: 0.78rem;
+        font-size: 0.88rem;
         color: var(--slate);
         line-height: 1.45;
         margin-bottom: 0.9rem;
     }
 
-    .hero {
-        border-radius: 28px;
-        padding: 28px 30px;
+    .hero-card {
         color: white;
+        border-radius: 30px;
+        padding: 30px 34px;
         margin-bottom: 18px;
-        position: relative;
-        overflow: hidden;
         background:
-            radial-gradient(circle at 80% 20%, rgba(0,174,239,0.20), transparent 20%),
-            radial-gradient(circle at 95% 80%, rgba(34,197,94,0.24), transparent 20%),
+            radial-gradient(circle at 82% 12%, rgba(0,174,239,0.23), transparent 20%),
+            radial-gradient(circle at 90% 80%, rgba(34,197,94,0.22), transparent 24%),
             linear-gradient(135deg, #061733 0%, #143EA8 50%, #118E5D 100%);
-        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
-    }
-
-    .hero:before {
-        content: "";
-        position: absolute;
-        width: 420px;
-        height: 420px;
-        border: 1px solid rgba(255,255,255,0.10);
-        border-radius: 50%;
-        right: -120px;
-        top: -120px;
-    }
-
-    .hero:after {
-        content: "";
-        position: absolute;
-        width: 260px;
-        height: 260px;
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 50%;
-        left: 48%;
-        bottom: -150px;
-    }
-
-    .hero-grid {
-        position: relative;
-        z-index: 2;
-        display: grid;
-        grid-template-columns: 1.5fr 0.8fr;
-        gap: 20px;
-        align-items: center;
-    }
-
-    .hero-left {
-        min-width: 0;
-    }
-
-    .hero-title-row {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        margin-bottom: 8px;
-    }
-
-    .hero-badge-icon {
-        width: 58px;
-        height: 58px;
-        border-radius: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(255,255,255,0.14);
-        border: 1px solid rgba(255,255,255,0.14);
-        font-size: 1.7rem;
-        box-shadow: inset 0 0 18px rgba(255,255,255,0.10);
+        box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18);
     }
 
     .hero-title {
-        font-size: 3rem;
+        font-size: clamp(2.35rem, 3.5vw, 3.45rem);
         font-weight: 950;
         line-height: 1.02;
-        margin: 0;
-        letter-spacing: -0.4px;
+        letter-spacing: -0.04rem;
+        margin-bottom: 6px;
     }
 
     .hero-subtitle {
-        font-size: 1.45rem;
-        font-weight: 800;
-        margin-top: 4px;
+        font-size: clamp(1.25rem, 1.7vw, 1.65rem);
+        font-weight: 850;
         line-height: 1.25;
+        margin-bottom: 14px;
     }
 
     .hero-desc {
-        margin-top: 12px;
-        font-size: 0.95rem;
-        color: rgba(255,255,255,0.88);
-        line-height: 1.55;
-        max-width: 900px;
+        max-width: 1040px;
+        font-size: 1.05rem;
+        font-weight: 520;
+        line-height: 1.6;
+        color: rgba(255,255,255,0.90);
+        margin-bottom: 15px;
     }
 
     .hero-pills {
         display: flex;
-        gap: 8px;
         flex-wrap: wrap;
-        margin-top: 14px;
+        gap: 10px;
     }
 
     .hero-pill {
-        padding: 8px 12px;
+        display: inline-flex;
+        padding: 9px 13px;
         border-radius: 999px;
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.14);
-        font-size: 0.78rem;
-        font-weight: 800;
-        color: rgba(255,255,255,0.96);
-    }
-
-    .hero-right {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        align-content: center;
-    }
-
-    .floating-card {
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.16);
-        border-radius: 22px;
-        padding: 16px 14px;
-        box-shadow: 0 12px 28px rgba(0,0,0,0.10);
-        backdrop-filter: blur(8px);
-        min-height: 112px;
-    }
-
-    .floating-card.big {
-        grid-column: span 2;
-        min-height: 108px;
-    }
-
-    .floating-icon {
-        font-size: 1.7rem;
-        margin-bottom: 8px;
-    }
-
-    .floating-title {
-        font-size: 0.78rem;
-        font-weight: 800;
-        color: rgba(255,255,255,0.85);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 4px;
-    }
-
-    .floating-value {
-        font-size: 1.15rem;
-        font-weight: 900;
-        line-height: 1.2;
+        background: rgba(255,255,255,0.15);
+        border: 1px solid rgba(255,255,255,0.18);
         color: white;
+        font-size: 0.90rem;
+        font-weight: 800;
     }
 
-    .floating-caption {
-        margin-top: 4px;
-        font-size: 0.76rem;
-        color: rgba(255,255,255,0.82);
-        line-height: 1.3;
+    .visual-strip {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin: 4px 0 16px 0;
+    }
+
+    .visual-card {
+        min-height: 118px;
+        background: rgba(255,255,255,0.94);
+        border: 1px solid rgba(148,163,184,0.24);
+        border-radius: 24px;
+        padding: 18px 20px;
+        box-shadow: 0 16px 34px rgba(15, 23, 42, 0.07);
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+
+    .visual-icon {
+        width: 58px;
+        height: 58px;
+        min-width: 58px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        background: linear-gradient(135deg, #E0F2FE, #F8FAFC);
+        box-shadow: inset 0 -12px 22px rgba(0,91,172,0.10);
+    }
+
+    .visual-title {
+        color: #071B3A;
+        font-size: 1.12rem;
+        font-weight: 950;
+        line-height: 1.2;
+        margin-bottom: 3px;
+    }
+
+    .visual-caption {
+        color: #475569;
+        font-size: 0.92rem;
+        line-height: 1.35;
+        font-weight: 520;
     }
 
     .kpi-card {
+        min-height: 132px;
         position: relative;
         overflow: hidden;
-        padding: 18px 18px;
-        border-radius: 22px;
+        border-radius: 24px;
+        padding: 19px 20px;
         color: white;
-        min-height: 126px;
-        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.10);
+        box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
     }
 
     .kpi-card:after {
         content: "";
         position: absolute;
-        width: 120px;
-        height: 120px;
-        right: -35px;
-        top: -35px;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.16);
+        right: -45px;
+        top: -45px;
+        width: 135px;
+        height: 135px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.15);
     }
 
-    .kpi-blue {
-        background: linear-gradient(135deg, #0E56D8 0%, #1AA3E8 100%);
-    }
-
-    .kpi-green {
-        background: linear-gradient(135deg, #089451 0%, #22C55E 100%);
-    }
-
-    .kpi-orange {
-        background: linear-gradient(135deg, #EA580C 0%, #F97316 100%);
-    }
-
-    .kpi-purple {
-        background: linear-gradient(135deg, #7C3AED 0%, #A855F7 100%);
-    }
+    .kpi-blue { background: linear-gradient(135deg, #0E56D8 0%, #1AA3E8 100%); }
+    .kpi-green { background: linear-gradient(135deg, #078C4D 0%, #22C55E 100%); }
+    .kpi-orange { background: linear-gradient(135deg, #EA580C 0%, #FB923C 100%); }
+    .kpi-purple { background: linear-gradient(135deg, #7C3AED 0%, #A855F7 100%); }
 
     .kpi-title {
         position: relative;
         z-index: 2;
-        font-size: 0.88rem;
-        font-weight: 800;
-        opacity: 0.98;
-        margin-bottom: 10px;
+        font-size: 1rem;
+        font-weight: 850;
+        margin-bottom: 9px;
     }
 
     .kpi-value {
         position: relative;
         z-index: 2;
-        font-size: 2rem;
+        font-size: 2.1rem;
         font-weight: 950;
         line-height: 1.05;
-        margin-bottom: 7px;
+        margin-bottom: 8px;
     }
 
     .kpi-subtitle {
         position: relative;
         z-index: 2;
-        font-size: 0.8rem;
-        opacity: 0.94;
+        font-size: 0.88rem;
         line-height: 1.35;
+        font-weight: 550;
+        opacity: 0.95;
     }
 
     .insight-box {
-        margin-top: 10px;
-        margin-bottom: 14px;
-        padding: 14px 16px;
-        background: rgba(255,255,255,0.92);
+        padding: 15px 18px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.94);
         border: 1px solid rgba(148,163,184,0.24);
-        border-radius: 18px;
+        box-shadow: 0 12px 26px rgba(15,23,42,0.06);
         color: #334155;
-        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+        font-size: 1rem;
         line-height: 1.55;
-        font-size: 0.92rem;
+        margin-top: 12px;
+        margin-bottom: 15px;
     }
 
     .mini-stat {
-        padding: 16px 18px;
-        border-radius: 20px;
-        background: rgba(255,255,255,0.94);
-        border: 1px solid rgba(148,163,184,0.22);
-        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
-        min-height: 104px;
+        min-height: 105px;
+        padding: 17px 18px;
+        border-radius: 22px;
+        background: rgba(255,255,255,0.96);
+        border: 1px solid rgba(148,163,184,0.24);
+        box-shadow: 0 12px 26px rgba(15,23,42,0.06);
     }
 
     .mini-label {
         color: var(--slate);
-        font-size: 0.78rem;
-        font-weight: 800;
+        font-size: 0.86rem;
+        font-weight: 850;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.04em;
         margin-bottom: 5px;
     }
 
@@ -347,105 +273,93 @@ st.markdown("""
         color: var(--navy);
         font-size: 1.35rem;
         font-weight: 950;
-        line-height: 1.15;
+        line-height: 1.18;
     }
 
     .mini-caption {
-        margin-top: 6px;
         color: var(--slate);
-        font-size: 0.8rem;
+        font-size: 0.90rem;
+        margin-top: 5px;
         line-height: 1.35;
     }
 
     .section-title {
+        color: var(--navy);
+        font-size: 1.55rem;
+        font-weight: 950;
+        margin-top: 22px;
+        margin-bottom: 4px;
         display: flex;
         align-items: center;
         gap: 10px;
-        margin-top: 18px;
-        margin-bottom: 6px;
     }
 
-    .section-dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
+    .section-title:before {
+        content: "";
+        width: 13px;
+        height: 13px;
+        border-radius: 999px;
         background: linear-gradient(135deg, #005BAC, #00AEEF);
         box-shadow: 0 0 0 7px rgba(0,91,172,0.08);
     }
 
-    .section-title h3 {
-        margin: 0;
-        color: var(--navy);
-        font-size: 1.5rem;
-        font-weight: 950;
-        letter-spacing: -0.2px;
-    }
-
     .section-subtitle {
-        margin-bottom: 14px;
         color: var(--slate);
-        font-size: 0.88rem;
-    }
-
-    .panel {
-        background: rgba(255,255,255,0.96);
-        border: 1px solid rgba(148,163,184,0.22);
-        border-radius: 24px;
-        padding: 14px 16px 6px 16px;
-        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
-        height: 100%;
+        font-size: 1rem;
+        margin-bottom: 14px;
+        line-height: 1.4;
     }
 
     .panel-title {
-        font-size: 1rem;
-        font-weight: 900;
         color: var(--navy);
-        margin-bottom: 2px;
+        font-size: 1.18rem;
+        font-weight: 950;
+        line-height: 1.2;
+        margin-bottom: 4px;
     }
 
     .panel-subtitle {
-        font-size: 0.79rem;
         color: var(--slate);
-        margin-bottom: 10px;
+        font-size: 0.96rem;
         line-height: 1.35;
-    }
-
-    .stDataFrame {
-        border-radius: 16px;
-        overflow: hidden;
+        margin-bottom: 10px;
     }
 
     div[data-testid="stDataFrame"] {
-        border: 1px solid rgba(148,163,184,0.22);
         border-radius: 18px;
         overflow: hidden;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+        border: 1px solid rgba(148,163,184,0.25);
+        box-shadow: 0 12px 28px rgba(15,23,42,0.06);
+        font-size: 1rem;
+    }
+
+    div[data-testid="stDataFrame"] * {
+        font-size: 0.96rem !important;
     }
 
     div[data-baseweb="tab-list"] {
         gap: 10px;
         border-bottom: 1px solid rgba(148,163,184,0.24);
-        margin-bottom: 4px;
+        margin-top: 4px;
+        margin-bottom: 8px;
     }
 
     button[data-baseweb="tab"] {
-        border-radius: 12px 12px 0 0;
-        padding-top: 10px;
-        padding-bottom: 10px;
+        border-radius: 13px 13px 0 0;
+        padding-top: 12px;
+        padding-bottom: 12px;
+        font-size: 1rem;
         font-weight: 850;
     }
 
     @media (max-width: 1100px) {
-        .hero-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .hero-title {
-            font-size: 2.4rem;
-        }
+        .visual-strip { grid-template-columns: 1fr; }
+        .hero-title { font-size: 2.4rem; }
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True
+)
 
 # =====================================================
 # FUNGSI BANTUAN
@@ -466,7 +380,7 @@ def format_miliar(value):
         hasil = f"{value:,.2f}"
         hasil = hasil.replace(",", "X").replace(".", ",").replace("X", ".")
         return f"Rp {hasil} M"
-    except:
+    except Exception:
         return "Rp 0,00 M"
 
 
@@ -475,7 +389,7 @@ def format_chart_miliar(value):
         hasil = f"{float(value):,.2f}"
         hasil = hasil.replace(",", "X").replace(".", ",").replace("X", ".")
         return f"{hasil} M"
-    except:
+    except Exception:
         return "0,00 M"
 
 
@@ -484,7 +398,7 @@ def format_persen(value):
         hasil = f"{float(value):,.1f}"
         hasil = hasil.replace(",", "X").replace(".", ",").replace("X", ".")
         return f"{hasil}%"
-    except:
+    except Exception:
         return "0,0%"
 
 
@@ -514,7 +428,7 @@ def format_akuntansi(value, desimal=2):
         hasil = f"{value:,.{desimal}f}"
         hasil = hasil.replace(",", "X").replace(".", ",").replace("X", ".")
         return hasil
-    except:
+    except Exception:
         return "0,00"
 
 
@@ -540,12 +454,12 @@ def standarkan_nama_kolom(df):
 def render_kpi_card(title, value, subtitle, color_class):
     st.markdown(
         f"""
-        <div class="kpi-card {color_class}">
-            <div class="kpi-title">{title}</div>
-            <div class="kpi-value">{value}</div>
-            <div class="kpi-subtitle">{subtitle}</div>
-        </div>
-        """,
+<div class="kpi-card {color_class}">
+    <div class="kpi-title">{title}</div>
+    <div class="kpi-value">{value}</div>
+    <div class="kpi-subtitle">{subtitle}</div>
+</div>
+""",
         unsafe_allow_html=True
     )
 
@@ -553,12 +467,12 @@ def render_kpi_card(title, value, subtitle, color_class):
 def render_mini_stat(label, value, caption):
     st.markdown(
         f"""
-        <div class="mini-stat">
-            <div class="mini-label">{label}</div>
-            <div class="mini-value">{value}</div>
-            <div class="mini-caption">{caption}</div>
-        </div>
-        """,
+<div class="mini-stat">
+    <div class="mini-label">{label}</div>
+    <div class="mini-value">{value}</div>
+    <div class="mini-caption">{caption}</div>
+</div>
+""",
         unsafe_allow_html=True
     )
 
@@ -566,12 +480,9 @@ def render_mini_stat(label, value, caption):
 def render_section(title, subtitle=""):
     st.markdown(
         f"""
-        <div class="section-title">
-            <div class="section-dot"></div>
-            <h3>{title}</h3>
-        </div>
-        <div class="section-subtitle">{subtitle}</div>
-        """,
+<div class="section-title">{title}</div>
+<div class="section-subtitle">{subtitle}</div>
+""",
         unsafe_allow_html=True
     )
 
@@ -579,32 +490,42 @@ def render_section(title, subtitle=""):
 def render_panel_header(title, subtitle=""):
     st.markdown(
         f"""
-        <div class="panel-title">{title}</div>
-        <div class="panel-subtitle">{subtitle}</div>
-        """,
+<div class="panel-title">{title}</div>
+<div class="panel-subtitle">{subtitle}</div>
+""",
         unsafe_allow_html=True
     )
 
 
-def apply_plotly_style(fig, height=420):
+def apply_plotly_style(fig, height=430):
     fig.update_layout(
         template="plotly_white",
+        title_text="",
+        title=None,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         height=height,
-        margin=dict(t=10, l=10, r=10, b=10),
-        font=dict(family="Segoe UI, Arial", size=12, color="#334155"),
-        showlegend=True
+        margin=dict(t=15, l=15, r=25, b=25),
+        font=dict(family="Segoe UI, Arial", size=15, color="#334155"),
+        showlegend=True,
+        legend=dict(font=dict(size=14))
     )
+
     fig.update_xaxes(
         showgrid=True,
-        gridcolor="rgba(148,163,184,0.18)",
-        zeroline=False
+        gridcolor="rgba(148,163,184,0.22)",
+        zeroline=False,
+        tickfont=dict(size=14),
+        title_font=dict(size=15)
     )
+
     fig.update_yaxes(
         showgrid=False,
-        zeroline=False
+        zeroline=False,
+        tickfont=dict(size=14),
+        title_font=dict(size=15)
     )
+
     return fig
 
 
@@ -646,9 +567,7 @@ def kelompok_produk_keyword(nama_produk):
     ]):
         return "SPKLU / EV Charging"
 
-    if any(k in teks for k in [
-        "forklift", "forklift listrik", "forklift electric", "forklift ev"
-    ]):
+    if any(k in teks for k in ["forklift", "forklift listrik", "forklift electric", "forklift ev"]):
         return "Forklift Electric"
 
     if any(k in teks for k in [
@@ -658,18 +577,13 @@ def kelompok_produk_keyword(nama_produk):
     ]):
         return "Sewa Kendaraan Listrik / EV"
 
-    if any(k in teks for k in [
-        "plts", "pv rooftop", "solar", "surya", "rooftop"
-    ]):
+    if any(k in teks for k in ["plts", "pv rooftop", "solar", "surya", "rooftop"]):
         return "PLTS / PV Rooftop"
 
     if any(k in teks for k in ["rec", "renewable energy certificate"]):
         return "REC"
 
-    if any(k in teks for k in [
-        "drups", "rups", "bess", "battery energy storage",
-        "power quality", "ups", "onshore connection"
-    ]):
+    if any(k in teks for k in ["drups", "rups", "bess", "battery energy storage", "power quality", "ups", "onshore connection"]):
         return "Power Quality / BESS / DRUPS / RUPS"
 
     if any(k in teks for k in ["genset", "backup", "captive power", "sewa genset"]):
@@ -691,9 +605,7 @@ def kelompok_produk_keyword(nama_produk):
     ]):
         return "Internet & Connectivity"
 
-    if any(k in teks for k in [
-        "cctv", "i-see", "firewall", "fortigate", "security", "camera", "surveillance"
-    ]):
+    if any(k in teks for k in ["cctv", "i-see", "firewall", "fortigate", "security", "camera", "surveillance"]):
         return "CCTV & Security"
 
     if any(k in teks for k in [
@@ -788,7 +700,7 @@ def kelompok_produk_ai(nama_produk):
 
         return "Lainnya / Perlu Review"
 
-    except:
+    except Exception:
         return "Lainnya / Perlu Review"
 
 
@@ -797,7 +709,7 @@ def kelompok_produk_ai(nama_produk):
 # =====================================================
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
-except:
+except Exception:
     GEMINI_API_KEY = "MASUKKAN_API_KEY_ANDA_DISINI"
 
 if GEMINI_API_KEY != "MASUKKAN_API_KEY_ANDA_DISINI":
@@ -854,8 +766,8 @@ def load_data_from_gsheets():
         col_klaster = "Klaster Produk"
         col_anak = "ANAK PERUSAHAAN"
 
-        required_cols = [col_nominal, col_status, col_up3, col_klaster, col_anak]
-        missing = [col for col in required_cols if col not in df.columns]
+        required = [col_nominal, col_status, col_up3, col_klaster, col_anak]
+        missing = [col for col in required if col not in df.columns]
 
         if missing:
             st.error(f"Kolom berikut belum ditemukan di Google Sheets: {missing}")
@@ -915,11 +827,7 @@ def load_data_from_gsheets():
             "Selesai Pekerjaan"
         ]
 
-        status_potensi = [
-            "Probing",
-            "Penawaran",
-            "Negosiasi"
-        ]
+        status_potensi = ["Probing", "Penawaran", "Negosiasi"]
 
         df["Close Won (Rp)"] = df.apply(
             lambda x: x[col_nominal] if x[col_status] in status_won else 0,
@@ -953,14 +861,12 @@ if not df.empty:
     # =====================================================
     st.sidebar.markdown(
         """
-        <div class="sidebar-box">
-            <div class="sidebar-title">🔎 Filter Data</div>
-            <div class="sidebar-subtitle">
-                Gunakan filter untuk melihat performa IBS berdasarkan wilayah, klaster produk,
-                kelompok produk, subholding/anak perusahaan, dan status pipeline.
-            </div>
-        </div>
-        """,
+<div class="sidebar-title">🔎 Filter Data</div>
+<div class="sidebar-subtitle">
+Gunakan filter untuk melihat performa IBS berdasarkan wilayah, klaster produk,
+kelompok produk, subholding/anak perusahaan, dan status pipeline.
+</div>
+""",
         unsafe_allow_html=True
     )
 
@@ -1020,6 +926,7 @@ if not df.empty:
     total_revenue = df_filtered["Nominal Kontrak / Revenue (Rp)"].sum()
     total_won = df_filtered["Close Won (Rp)"].sum()
     total_potensi = df_filtered["Potensi (Rp)"].sum()
+
     won_ratio = (total_won / total_revenue * 100) if total_revenue > 0 else 0
     potensi_ratio = (total_potensi / total_revenue * 100) if total_revenue > 0 else 0
     avg_project = (total_revenue / total_project) if total_project > 0 else 0
@@ -1089,10 +996,6 @@ if not df.empty:
         .reset_index()
     )
     rekap_kelompok["Revenue_M"] = rekap_kelompok["Revenue_Rp"] / 1_000_000_000
-    rekap_kelompok["CloseWonRatio"] = rekap_kelompok.apply(
-        lambda x: (x["Close_Won_Rp"] / x["Revenue_Rp"] * 100) if x["Revenue_Rp"] > 0 else 0,
-        axis=1
-    )
     rekap_kelompok = rekap_kelompok.sort_values("Revenue_M", ascending=False)
 
     top_up3, top_up3_val = safe_top_value(rekap_up3, "UP3", "Total_Revenue_Rp")
@@ -1104,56 +1007,54 @@ if not df.empty:
     # =====================================================
     st.markdown(
         f"""
-        <div class="hero">
-            <div class="hero-grid">
-                <div class="hero-left">
-                    <div class="hero-title-row">
-                        <div class="hero-badge-icon">📊</div>
-                        <div>
-                            <div class="hero-title">Dashboard COREBOOST 2.0 UID JATIM</div>
-                            <div class="hero-subtitle">Integrated Business Solution (IBS) 2026</div>
-                        </div>
-                    </div>
+<div class="hero-card">
+    <div class="hero-title">📊 Dashboard COREBOOST 2.0 UID JATIM</div>
+    <div class="hero-subtitle">Integrated Business Solution (IBS) 2026</div>
+    <div class="hero-desc">
+        Dashboard eksekutif untuk memantau revenue, close won, potensi,
+        kelompok produk, kontribusi SHAP, performa UP3, dan status pipeline IBS
+        secara rapi, informatif, dan mudah dibaca.
+    </div>
+    <div class="hero-pills">
+        <div class="hero-pill">🕒 Update: {last_update}</div>
+        <div class="hero-pill">🏢 Top UP3: {top_up3}</div>
+        <div class="hero-pill">🤝 Top SHAP: {top_shap}</div>
+        <div class="hero-pill">⚡ Top Produk: {top_kelompok}</div>
+    </div>
+</div>
+""",
+        unsafe_allow_html=True
+    )
 
-                    <div class="hero-desc">
-                        Dashboard eksekutif untuk memantau revenue, close won, potensi,
-                        kelompok produk, kontribusi SHAP, performa UP3, dan status pipeline IBS
-                        secara lebih rapi, informatif, dan mudah dibaca.
-                    </div>
-
-                    <div class="hero-pills">
-                        <div class="hero-pill">🕒 Update: {last_update}</div>
-                        <div class="hero-pill">🏢 Top UP3: {top_up3}</div>
-                        <div class="hero-pill">🤝 Top SHAP: {top_shap}</div>
-                        <div class="hero-pill">⚡ Top Produk: {top_kelompok}</div>
-                    </div>
-                </div>
-
-                <div class="hero-right">
-                    <div class="floating-card">
-                        <div class="floating-icon">⚡</div>
-                        <div class="floating-title">Green & Energy</div>
-                        <div class="floating-value">PLTS • REC • Power Quality</div>
-                        <div class="floating-caption">Mencerminkan portofolio solusi energi dan elektrifikasi.</div>
-                    </div>
-
-                    <div class="floating-card">
-                        <div class="floating-icon">🚗</div>
-                        <div class="floating-title">EV Ecosystem</div>
-                        <div class="floating-value">SPKLU • EV • Forklift</div>
-                        <div class="floating-caption">Memperlihatkan akselerasi produk EV dan charging.</div>
-                    </div>
-
-                    <div class="floating-card big">
-                        <div class="floating-icon">📡</div>
-                        <div class="floating-title">Connectivity & Services</div>
-                        <div class="floating-value">Internet • Digital • Instalasi • Maintenance</div>
-                        <div class="floating-caption">Representasi layanan IBS yang beragam dalam satu tampilan dashboard.</div>
-                    </div>
-                </div>
-            </div>
+    # =====================================================
+    # VISUAL STRIP
+    # =====================================================
+    st.markdown(
+        """
+<div class="visual-strip">
+    <div class="visual-card">
+        <div class="visual-icon">⚡</div>
+        <div>
+            <div class="visual-title">Green & Energy Solution</div>
+            <div class="visual-caption">PLTS, REC, Power Quality, dan layanan elektrifikasi pelanggan.</div>
         </div>
-        """,
+    </div>
+    <div class="visual-card">
+        <div class="visual-icon">🚗</div>
+        <div>
+            <div class="visual-title">EV Ecosystem</div>
+            <div class="visual-caption">SPKLU, kendaraan listrik, forklift electric, dan charging solution.</div>
+        </div>
+    </div>
+    <div class="visual-card">
+        <div class="visual-icon">📡</div>
+        <div>
+            <div class="visual-title">Connectivity & Services</div>
+            <div class="visual-caption">Internet, digital, instalasi, maintenance, dan layanan SHAP.</div>
+        </div>
+    </div>
+</div>
+""",
         unsafe_allow_html=True
     )
 
@@ -1194,26 +1095,20 @@ if not df.empty:
             "kpi-purple"
         )
 
-    # =====================================================
-    # INSIGHT STRIP
-    # =====================================================
     st.markdown(
         f"""
-        <div class="insight-box">
-            💡 <b>Insight cepat:</b>
-            Top UP3 saat ini <b>{top_up3}</b> dengan kontribusi <b>{format_miliar(top_up3_val)}</b>.
-            Top SHAP adalah <b>{top_shap}</b> dengan revenue <b>{format_miliar(top_shap_val)}</b>.
-            Kelompok produk terbesar adalah <b>{top_kelompok}</b> dengan revenue <b>{format_miliar(top_kelompok_val)}</b>.
-            <br>
-            🕒 <b>Data terakhir dimuat:</b> {last_update}
-        </div>
-        """,
+<div class="insight-box">
+    💡 <b>Insight cepat:</b>
+    Top UP3 saat ini <b>{top_up3}</b> dengan kontribusi <b>{format_miliar(top_up3_val)}</b>.
+    Top SHAP adalah <b>{top_shap}</b> dengan revenue <b>{format_miliar(top_shap_val)}</b>.
+    Kelompok produk terbesar adalah <b>{top_kelompok}</b> dengan revenue <b>{format_miliar(top_kelompok_val)}</b>.
+    <br>
+    🕒 <b>Data terakhir dimuat:</b> {last_update}
+</div>
+""",
         unsafe_allow_html=True
     )
 
-    # =====================================================
-    # MINI STATS
-    # =====================================================
     m1, m2, m3, m4 = st.columns(4)
 
     with m1:
@@ -1245,11 +1140,10 @@ if not df.empty:
         row1_col1, row1_col2 = st.columns(2)
 
         with row1_col1:
-            with st.container():
-                st.markdown('<div class="panel">', unsafe_allow_html=True)
+            with st.container(border=True):
                 render_panel_header(
                     "Komposisi Revenue per Klaster Produk",
-                    "Menunjukkan proporsi revenue tiap klaster IBS."
+                    "Proporsi revenue tiap klaster IBS."
                 )
 
                 if not rekap_klaster.empty and rekap_klaster["Revenue_M"].sum() > 0:
@@ -1265,7 +1159,7 @@ if not df.empty:
                         rekap_klaster,
                         names="Klaster Produk",
                         values="Revenue_M",
-                        hole=0.62,
+                        hole=0.58,
                         color="Klaster Produk",
                         color_discrete_map=warna_klaster
                     )
@@ -1273,41 +1167,43 @@ if not df.empty:
                     fig_donut.update_traces(
                         textinfo="percent",
                         textposition="inside",
+                        textfont=dict(size=16, color="white"),
                         marker=dict(line=dict(color="white", width=2)),
                         hovertemplate="<b>%{label}</b><br>Revenue: %{value:.2f} M<br>Persentase: %{percent}<extra></extra>"
                     )
 
                     fig_donut.update_layout(
                         template="plotly_white",
+                        title_text="",
+                        title=None,
                         paper_bgcolor="rgba(0,0,0,0)",
-                        height=420,
+                        height=470,
                         margin=dict(t=10, l=10, r=10, b=10),
+                        font=dict(size=15, family="Segoe UI, Arial", color="#334155"),
                         legend=dict(
                             orientation="v",
                             x=1.02,
                             y=0.5,
                             xanchor="left",
-                            yanchor="middle"
+                            yanchor="middle",
+                            font=dict(size=14)
                         )
                     )
 
                     fig_donut.add_annotation(
-                        text=f"<b>{format_chart_miliar(total_revenue / 1_000_000_000)}</b><br><span style='font-size:12px'>Total</span>",
+                        text=f"<b>{format_chart_miliar(total_revenue / 1_000_000_000)}</b><br><span style='font-size:14px'>Total</span>",
                         showarrow=False,
                         x=0.5,
                         y=0.5,
-                        font=dict(size=18, color="#071B3A")
+                        font=dict(size=20, color="#071B3A")
                     )
 
                     st.plotly_chart(fig_donut, use_container_width=True, config=PLOTLY_CONFIG)
                 else:
                     st.info("Belum ada data revenue klaster.")
 
-                st.markdown('</div>', unsafe_allow_html=True)
-
         with row1_col2:
-            with st.container():
-                st.markdown('<div class="panel">', unsafe_allow_html=True)
+            with st.container(border=True):
                 render_panel_header(
                     "Top SHAP Berdasarkan Revenue",
                     "Subholding / anak perusahaan dengan kontribusi revenue terbesar."
@@ -1329,12 +1225,13 @@ if not df.empty:
 
                     fig_shap.update_traces(
                         textposition="outside",
+                        textfont_size=15,
                         cliponaxis=False,
                         hovertemplate="<b>%{y}</b><br>Revenue: %{x:.2f} M<extra></extra>"
                     )
 
                     fig_shap.update_layout(coloraxis_showscale=False)
-                    fig_shap = apply_plotly_style(fig_shap, height=420)
+                    fig_shap = apply_plotly_style(fig_shap, height=470)
                     fig_shap.update_xaxes(title="Revenue (Miliar Rp)")
                     fig_shap.update_yaxes(title="")
 
@@ -1342,13 +1239,10 @@ if not df.empty:
                 else:
                     st.info("Belum ada data SHAP.")
 
-                st.markdown('</div>', unsafe_allow_html=True)
-
         row2_col1, row2_col2 = st.columns(2)
 
         with row2_col1:
-            with st.container():
-                st.markdown('<div class="panel">', unsafe_allow_html=True)
+            with st.container(border=True):
                 render_panel_header(
                     "Top 10 UP3 Berdasarkan Revenue",
                     "Peringkat UP3 berdasarkan total revenue project IBS."
@@ -1370,12 +1264,13 @@ if not df.empty:
 
                     fig_up3.update_traces(
                         textposition="outside",
+                        textfont_size=15,
                         cliponaxis=False,
                         hovertemplate="<b>%{y}</b><br>Revenue: %{x:.2f} M<extra></extra>"
                     )
 
                     fig_up3.update_layout(coloraxis_showscale=False)
-                    fig_up3 = apply_plotly_style(fig_up3, height=470)
+                    fig_up3 = apply_plotly_style(fig_up3, height=520)
                     fig_up3.update_xaxes(title="Revenue (Miliar Rp)")
                     fig_up3.update_yaxes(title="")
 
@@ -1383,62 +1278,46 @@ if not df.empty:
                 else:
                     st.info("Belum ada data UP3.")
 
-                st.markdown('</div>', unsafe_allow_html=True)
-
         with row2_col2:
-            with st.container():
-                st.markdown('<div class="panel">', unsafe_allow_html=True)
+            with st.container(border=True):
                 render_panel_header(
                     "Pipeline per Status",
                     "Distribusi jumlah project berdasarkan status terupdate."
                 )
 
                 if not rekap_status_count.empty:
-                    order_status = [
-                        "Probing", "Penawaran", "Negosiasi", "Dealing",
-                        "Pelaksanaan Pekerjaan", "Closing / selesai Pekerjaan",
-                        "Closing", "Selesai Pekerjaan"
-                    ]
+                    temp = rekap_status_count.sort_values("Jumlah_Project", ascending=True).copy()
 
-                    temp = rekap_status_count.copy()
-                    temp["Status Terupdate"] = pd.Categorical(
-                        temp["Status Terupdate"],
-                        categories=order_status,
-                        ordered=True
-                    )
-                    temp = temp.sort_values("Status Terupdate").dropna()
-
-                    fig_funnel = go.Figure(
-                        go.Funnel(
-                            y=temp["Status Terupdate"],
-                            x=temp["Jumlah_Project"],
-                            textinfo="value",
-                            textposition="inside",
-                            marker=dict(
-                                color=["#7DD3FC", "#38BDF8", "#0EA5E9", "#22C55E", "#F59E0B", "#F97316", "#8B5CF6", "#005BAC"],
-                                line=dict(width=1, color="white")
-                            ),
-                            opacity=0.95
-                        )
+                    fig_status_count = px.bar(
+                        temp,
+                        x="Jumlah_Project",
+                        y="Status Terupdate",
+                        orientation="h",
+                        text="Jumlah_Project",
+                        color="Status Terupdate",
+                        color_discrete_sequence=[
+                            "#005BAC", "#00AEEF", "#00A859",
+                            "#F97316", "#8B5CF6", "#EF4444", "#FFD200"
+                        ]
                     )
 
-                    fig_funnel.update_layout(
-                        template="plotly_white",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        height=470,
-                        margin=dict(t=10, l=10, r=10, b=10),
-                        font=dict(family="Segoe UI, Arial", size=12, color="#334155")
+                    fig_status_count.update_traces(
+                        textposition="outside",
+                        textfont_size=16,
+                        cliponaxis=False,
+                        hovertemplate="<b>%{y}</b><br>Jumlah Project: %{x}<extra></extra>"
                     )
 
-                    st.plotly_chart(fig_funnel, use_container_width=True, config=PLOTLY_CONFIG)
+                    fig_status_count = apply_plotly_style(fig_status_count, height=520)
+                    fig_status_count.update_layout(showlegend=False)
+                    fig_status_count.update_xaxes(title="Jumlah Project")
+                    fig_status_count.update_yaxes(title="")
+
+                    st.plotly_chart(fig_status_count, use_container_width=True, config=PLOTLY_CONFIG)
                 else:
                     st.info("Belum ada data status pipeline.")
 
-                st.markdown('</div>', unsafe_allow_html=True)
-
-        with st.container():
-            st.markdown('<div class="panel">', unsafe_allow_html=True)
+        with st.container(border=True):
             render_panel_header(
                 "Revenue Berdasarkan Kelompok Produk",
                 "Kelompok produk disusun dari normalisasi nama produk yang bervariasi."
@@ -1460,20 +1339,19 @@ if not df.empty:
 
                 fig_kelompok.update_traces(
                     textposition="outside",
+                    textfont_size=16,
                     cliponaxis=False,
                     hovertemplate="<b>%{y}</b><br>Revenue: %{x:.2f} M<extra></extra>"
                 )
 
                 fig_kelompok.update_layout(coloraxis_showscale=False)
-                fig_kelompok = apply_plotly_style(fig_kelompok, height=620)
+                fig_kelompok = apply_plotly_style(fig_kelompok, height=700)
                 fig_kelompok.update_xaxes(title="Revenue (Miliar Rp)")
                 fig_kelompok.update_yaxes(title="")
 
                 st.plotly_chart(fig_kelompok, use_container_width=True, config=PLOTLY_CONFIG)
             else:
                 st.info("Belum ada data kelompok produk.")
-
-            st.markdown('</div>', unsafe_allow_html=True)
 
     # =====================================================
     # TAB 2 - ANALISIS
@@ -1487,18 +1365,17 @@ if not df.empty:
         anal_col1, anal_col2 = st.columns(2)
 
         with anal_col1:
-            with st.container():
-                st.markdown('<div class="panel">', unsafe_allow_html=True)
+            with st.container(border=True):
                 render_panel_header(
                     "Revenue per Status Terupdate",
-                    "Melihat nilai revenue pada masing-masing tahap pipeline."
+                    "Nilai revenue pada masing-masing tahap pipeline."
                 )
 
                 if not rekap_status_revenue.empty and rekap_status_revenue["Revenue_M"].sum() > 0:
                     temp = rekap_status_revenue.copy()
                     temp["Label"] = temp["Revenue_M"].apply(format_chart_miliar)
 
-                    fig_status = px.bar(
+                    fig_status_rev = px.bar(
                         temp.sort_values("Revenue_M", ascending=True),
                         x="Revenue_M",
                         y="Status Terupdate",
@@ -1508,66 +1385,60 @@ if not df.empty:
                         color_continuous_scale=["#E8F5FF", "#7DD3FC", "#0284C7"]
                     )
 
-                    fig_status.update_traces(
+                    fig_status_rev.update_traces(
                         textposition="outside",
+                        textfont_size=15,
                         cliponaxis=False,
                         hovertemplate="<b>%{y}</b><br>Revenue: %{x:.2f} M<extra></extra>"
                     )
 
-                    fig_status.update_layout(coloraxis_showscale=False)
-                    fig_status = apply_plotly_style(fig_status, height=420)
-                    fig_status.update_xaxes(title="Revenue (Miliar Rp)")
-                    fig_status.update_yaxes(title="")
+                    fig_status_rev.update_layout(coloraxis_showscale=False)
+                    fig_status_rev = apply_plotly_style(fig_status_rev, height=470)
+                    fig_status_rev.update_xaxes(title="Revenue (Miliar Rp)")
+                    fig_status_rev.update_yaxes(title="")
 
-                    st.plotly_chart(fig_status, use_container_width=True, config=PLOTLY_CONFIG)
+                    st.plotly_chart(fig_status_rev, use_container_width=True, config=PLOTLY_CONFIG)
                 else:
                     st.info("Belum ada data revenue per status.")
 
-                st.markdown('</div>', unsafe_allow_html=True)
-
         with anal_col2:
-            with st.container():
-                st.markdown('<div class="panel">', unsafe_allow_html=True)
+            with st.container(border=True):
                 render_panel_header(
-                    "Treemap Portofolio Kelompok Produk",
-                    "Visualisasi kontribusi revenue dan rasio close won per kelompok produk."
+                    "Revenue per Klaster Produk",
+                    "Grafik klaster produk dikembalikan ke bentuk bar chart agar lebih jelas."
                 )
 
-                if not rekap_kelompok.empty and rekap_kelompok["Revenue_Rp"].sum() > 0:
-                    temp = rekap_kelompok.copy()
+                if not rekap_klaster.empty and rekap_klaster["Revenue_M"].sum() > 0:
+                    temp = rekap_klaster.copy()
+                    temp["Label"] = temp["Revenue_M"].apply(format_chart_miliar)
 
-                    fig_tree = px.treemap(
-                        temp,
-                        path=["Kelompok Produk"],
-                        values="Revenue_Rp",
-                        color="CloseWonRatio",
-                        color_continuous_scale=["#E5F9F0", "#22C55E", "#0B7A43"],
-                        custom_data=["Revenue_M", "CloseWonRatio", "Jumlah_Project"]
+                    fig_klaster_bar = px.bar(
+                        temp.sort_values("Revenue_M", ascending=True),
+                        x="Revenue_M",
+                        y="Klaster Produk",
+                        orientation="h",
+                        text="Label",
+                        color="Klaster Produk",
+                        color_discrete_sequence=[
+                            "#00A859", "#005BAC", "#00AEEF", "#FFD200", "#8B5CF6"
+                        ]
                     )
 
-                    fig_tree.update_traces(
-                        textinfo="label+value",
-                        hovertemplate=(
-                            "<b>%{label}</b><br>"
-                            "Revenue: Rp %{customdata[0]:.2f} M<br>"
-                            "Rasio Close Won: %{customdata[1]:.1f}%<br>"
-                            "Jumlah Project: %{customdata[2]}<extra></extra>"
-                        )
+                    fig_klaster_bar.update_traces(
+                        textposition="outside",
+                        textfont_size=15,
+                        cliponaxis=False,
+                        hovertemplate="<b>%{y}</b><br>Revenue: %{x:.2f} M<extra></extra>"
                     )
 
-                    fig_tree.update_layout(
-                        template="plotly_white",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        height=420,
-                        margin=dict(t=10, l=10, r=10, b=10),
-                        coloraxis_colorbar=dict(title="CW Ratio")
-                    )
+                    fig_klaster_bar = apply_plotly_style(fig_klaster_bar, height=470)
+                    fig_klaster_bar.update_layout(showlegend=False)
+                    fig_klaster_bar.update_xaxes(title="Revenue (Miliar Rp)")
+                    fig_klaster_bar.update_yaxes(title="")
 
-                    st.plotly_chart(fig_tree, use_container_width=True, config=PLOTLY_CONFIG)
+                    st.plotly_chart(fig_klaster_bar, use_container_width=True, config=PLOTLY_CONFIG)
                 else:
-                    st.info("Belum ada data kelompok produk.")
-
-                st.markdown('</div>', unsafe_allow_html=True)
+                    st.info("Belum ada data klaster produk.")
 
         st.markdown("### Rekap Revenue per UP3")
         rekap_up3_tampil = rekap_up3.copy()
