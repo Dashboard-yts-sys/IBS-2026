@@ -165,7 +165,7 @@ def format_miliar(value):
 
 def clean_rupiah(value):
     """
-    Membersihkan format rupiah dari Google Sheets.
+    Membersihkan format rupiah/angka dari Google Sheets.
     Contoh:
     799.344.000,00 -> 799344000
     Rp 799.344.000,00 -> 799344000
@@ -199,12 +199,10 @@ def format_akuntansi(value, desimal=2):
         if pd.isna(value):
             return "0,00"
 
-        # Jika angka masih berbentuk teks seperti Rp 252.717.225,00
         if isinstance(value, str):
             value = clean_rupiah(value)
 
         value = float(value)
-
         hasil = f"{value:,.{desimal}f}"
         hasil = hasil.replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -233,6 +231,359 @@ def bersihkan_teks_kosong(series):
         .str.strip()
         .replace(["nan", "None", "NaN", "", "-", "0"], "Belum Terisi")
     )
+
+
+def standarkan_nama_kolom(df):
+    """
+    Merapikan nama kolom dari Google Sheets, terutama yang punya enter/baris baru.
+    Contoh:
+    TANGGAL
+    PROBING
+    (TGL/BLN/THN)
+    menjadi:
+    TANGGAL PROBING (TGL/BLN/THN)
+    """
+    df.columns = (
+        df.columns
+        .astype(str)
+        .str.replace("\n", " ", regex=False)
+        .str.replace("\r", " ", regex=False)
+        .str.replace(r"\s+", " ", regex=True)
+        .str.strip()
+    )
+    return df
+
+
+def kelompok_produk_keyword(nama_produk):
+    """
+    Pengelompokan produk IBS berbasis keyword.
+    Disusun untuk variasi nama produk yang banyak dan tidak seragam.
+    """
+
+    if pd.isna(nama_produk):
+        return "Lainnya / Perlu Review"
+
+    teks = str(nama_produk).lower().strip()
+
+    if teks == "" or teks in ["nan", "none", "-", "0"]:
+        return "Lainnya / Perlu Review"
+
+    # Normalisasi typo umum
+    teks = teks.replace("cubicke", "cubicle")
+    teks = teks.replace("cubical", "cubicle")
+    teks = teks.replace("kubikle", "kubikel")
+    teks = teks.replace("trafokubikel", "trafo kubikel")
+    teks = teks.replace("intalasi", "instalasi")
+    teks = teks.replace("aksess", "access")
+    teks = teks.replace("di gital", "digital")
+    teks = teks.replace("kompatible", "compatible")
+
+    # =====================================================
+    # URUTAN PENTING:
+    # Produk spesifik dicek dulu, baru kategori umum.
+    # =====================================================
+
+    # 1. SPKLU / EV Charging
+    if any(k in teks for k in [
+        "spklu",
+        "ev charger",
+        "charging station",
+        "home charger",
+        "private charger",
+        "charger dc",
+        "charger 30",
+        "charger 60",
+        "charger 120",
+        "mesin spklu",
+        "om mesin spklu",
+        "uji compatible mesin spklu",
+        "uji kompatible mesin spklu",
+        "pb kwh meter untuk spklu"
+    ]):
+        return "SPKLU / EV Charging"
+
+    # 2. Forklift Electric
+    if any(k in teks for k in [
+        "forklift",
+        "forklift listrik",
+        "forklift electric",
+        "forklift ev"
+    ]):
+        return "Forklift Electric"
+
+    # 3. Sewa Kendaraan Listrik / EV
+    if any(k in teks for k in [
+        "mobil listrik",
+        "kendaraan listrik",
+        "kendaraan ev",
+        "sewa ev",
+        "sewa mobil listrik",
+        "sewa kendaraan",
+        "electric ambulance",
+        "ambulance",
+        "mobil pick up ev",
+        " ev",
+        "ev ",
+        "probing mobil listrik"
+    ]):
+        return "Sewa Kendaraan Listrik / EV"
+
+    # 4. PLTS / PV Rooftop
+    if any(k in teks for k in [
+        "plts",
+        "pv rooftop",
+        "solar",
+        "surya",
+        "rooftop"
+    ]):
+        return "PLTS / PV Rooftop"
+
+    # 5. REC
+    if any(k in teks for k in [
+        "rec",
+        "renewable energy certificate"
+    ]):
+        return "REC"
+
+    # 6. Power Quality / BESS / DRUPS / RUPS
+    if any(k in teks for k in [
+        "drups",
+        "rups",
+        "bess",
+        "battery energy storage",
+        "power quality",
+        "ups",
+        "onshore connection"
+    ]):
+        return "Power Quality / BESS / DRUPS / RUPS"
+
+    # 7. Genset / Backup Power
+    if any(k in teks for k in [
+        "genset",
+        "backup",
+        "captive power",
+        "sewa genset"
+    ]):
+        return "Genset / Backup Power"
+
+    # 8. Maintenance Trafo & Kubikel
+    if any(k in teks for k in [
+        "maintenance trafo",
+        "maintenance kubikel",
+        "pemeliharaan trafo",
+        "pemeliharaan kubikel",
+        "perbaikan iml",
+        "treatment oil",
+        "treatment trafo",
+        "test semua alat",
+        "layanan maintenance",
+        "maintenance cubicle",
+        "maintenance cubical",
+        "maintenance cubikel",
+        "pemeliharaan trafo & kubikel",
+        "pemeliharaan trafo dan kubikel"
+    ]):
+        return "Maintenance Trafo & Kubikel"
+
+    # 9. Internet & Connectivity
+    if any(k in teks for k in [
+        "internet",
+        "iconnet",
+        "icon+",
+        "icon plus",
+        "bandwidth",
+        "broadband",
+        "dedicated",
+        "corporate",
+        "ftth",
+        "ip publik",
+        "access point",
+        "i-win",
+        "koneksi internet"
+    ]):
+        return "Internet & Connectivity"
+
+    # 10. CCTV & Security
+    if any(k in teks for k in [
+        "cctv",
+        "i-see",
+        "firewall",
+        "fortigate",
+        "security",
+        "camera",
+        "surveillance"
+    ]):
+        return "CCTV & Security"
+
+    # 11. Digital Solution / ICT
+    if any(k in teks for k in [
+        "digital",
+        "zoom",
+        "aplikasi",
+        "server",
+        "hardisk",
+        "perangkat digital",
+        "smart switch",
+        "rekening",
+        "manage service"
+    ]):
+        return "Digital Solution / ICT"
+
+    # 12. IML / Instalasi / NIDI / SLO
+    if any(k in teks for k in [
+        "iml",
+        "instalasi",
+        "nidi",
+        "slo",
+        "sertifikat laik operasi",
+        "sertifikat laik fungsi",
+        "slf",
+        "pasang baru",
+        "penyambungan",
+        "tambah daya",
+        "penyambungan sementara",
+        "cabling",
+        "penarikan kabel",
+        "acos"
+    ]):
+        return "IML / Instalasi / NIDI / SLO"
+
+    # 13. Trafo / Kubikel / Gardu / Power Equipment
+    if any(k in teks for k in [
+        "trafo",
+        "kubikel",
+        "cubicle",
+        "gardu",
+        "capacitor",
+        "capasitor",
+        "capasitor bank",
+        "kapasitor",
+        "pengadaan tiang",
+        "tiang beton",
+        "bushing",
+        "incoming",
+        "outgoing",
+        "kwh meter",
+        "pembangunan gardu",
+        "power equipment"
+    ]):
+        return "Trafo / Kubikel / Gardu / Power Equipment"
+
+    # 14. PJU / Public Lighting
+    if any(k in teks for k in [
+        "pju",
+        "lampu jalan",
+        "public lighting"
+    ]):
+        return "PJU / Public Lighting"
+
+    # 15. Voucher Listrik
+    if any(k in teks for k in [
+        "voucher listrik",
+        "voucher pln",
+        "token listrik"
+    ]):
+        return "Voucher Listrik"
+
+    # 16. Asuransi
+    if any(k in teks for k in [
+        "asuransi"
+    ]):
+        return "Asuransi"
+
+    # 17. Konstruksi
+    if any(k in teks for k in [
+        "konstruksi",
+        "pembangunan",
+        "gedung baru"
+    ]):
+        return "Konstruksi"
+
+    # 18. Boiler / Electrifying Lifestyle Industrial
+    if any(k in teks for k in [
+        "electric steam boiler",
+        "steam boiler",
+        "heater",
+        "konversi heater"
+    ]):
+        return "Electrifying Lifestyle Industrial"
+
+    return "Lainnya / Perlu Review"
+
+
+def kelompok_produk_ai(nama_produk):
+    """
+    AI dipakai hanya untuk produk yang tidak terbaca rule keyword.
+    Jika GEMINI_API_KEY belum diisi, hasilnya tetap Perlu Review Manual.
+    """
+
+    if model is None:
+        return "Lainnya / Perlu Review"
+
+    try:
+        prompt = f"""
+        Klasifikasikan nama produk IBS berikut ke dalam satu kelompok produk yang paling sesuai.
+
+        Nama produk:
+        "{nama_produk}"
+
+        Pilih hanya satu dari daftar berikut:
+        1. SPKLU / EV Charging
+        2. Sewa Kendaraan Listrik / EV
+        3. Forklift Electric
+        4. PLTS / PV Rooftop
+        5. REC
+        6. Internet & Connectivity
+        7. CCTV & Security
+        8. Digital Solution / ICT
+        9. IML / Instalasi / NIDI / SLO
+        10. Trafo / Kubikel / Gardu / Power Equipment
+        11. Maintenance Trafo & Kubikel
+        12. Genset / Backup Power
+        13. Power Quality / BESS / DRUPS / RUPS
+        14. PJU / Public Lighting
+        15. Voucher Listrik
+        16. Asuransi
+        17. Konstruksi
+        18. Electrifying Lifestyle Industrial
+        19. Lainnya / Perlu Review
+
+        Jawab hanya nama kelompoknya saja, tanpa penjelasan.
+        """
+
+        response = model.generate_content(prompt)
+        hasil = response.text.strip()
+
+        daftar_kelompok = [
+            "SPKLU / EV Charging",
+            "Sewa Kendaraan Listrik / EV",
+            "Forklift Electric",
+            "PLTS / PV Rooftop",
+            "REC",
+            "Internet & Connectivity",
+            "CCTV & Security",
+            "Digital Solution / ICT",
+            "IML / Instalasi / NIDI / SLO",
+            "Trafo / Kubikel / Gardu / Power Equipment",
+            "Maintenance Trafo & Kubikel",
+            "Genset / Backup Power",
+            "Power Quality / BESS / DRUPS / RUPS",
+            "PJU / Public Lighting",
+            "Voucher Listrik",
+            "Asuransi",
+            "Konstruksi",
+            "Electrifying Lifestyle Industrial",
+            "Lainnya / Perlu Review"
+        ]
+
+        for kelompok in daftar_kelompok:
+            if kelompok.lower() in hasil.lower():
+                return kelompok
+
+        return "Lainnya / Perlu Review"
+
+    except:
+        return "Lainnya / Perlu Review"
 
 
 # =====================================================
@@ -278,7 +629,7 @@ def load_data_from_gsheets():
             "PNG", "MDR", "PSR", "GSK", "SDA", "SBU", "SBB", "SBS"
         ]
 
-        df_list = [];
+        df_list = []
 
         for sheet in target_sheets:
             if sheet in xls.sheet_names:
@@ -293,7 +644,7 @@ def load_data_from_gsheets():
         df = pd.concat(df_list, ignore_index=True)
 
         # Bersihkan nama kolom
-        df.columns = df.columns.astype(str).str.strip()
+        df = standarkan_nama_kolom(df)
 
         # Hapus baris kosong total
         df = df.dropna(how="all")
@@ -320,7 +671,7 @@ def load_data_from_gsheets():
             st.write("Kolom yang terbaca:", list(df.columns))
             return pd.DataFrame()
 
-        # Bersihkan nominal
+        # Bersihkan nominal utama
         df[col_nominal] = df[col_nominal].apply(clean_rupiah)
         df[col_nominal] = pd.to_numeric(df[col_nominal], errors="coerce").fillna(0)
 
@@ -340,18 +691,48 @@ def load_data_from_gsheets():
         df[col_klaster] = bersihkan_teks_kosong(df[col_klaster])
         df[col_anak_perusahaan] = bersihkan_teks_kosong(df[col_anak_perusahaan])
 
+        if "Nama Produk" in df.columns:
+            df["Nama Produk"] = bersihkan_teks_kosong(df["Nama Produk"])
+
         # Hapus baris tanpa nama pelanggan
         if "Nama Pelanggan" in df.columns:
             df = df[df["Nama Pelanggan"].notna()]
             df["Nama Pelanggan"] = df["Nama Pelanggan"].astype(str).str.strip()
             df = df[df["Nama Pelanggan"] != ""]
 
+        # =====================================================
+        # KELOMPOK PRODUK AI
+        # =====================================================
+        if "Nama Produk" in df.columns:
+            # Tahap 1: klasifikasi cepat berbasis keyword
+            df["Kelompok Produk AI"] = df["Nama Produk"].apply(kelompok_produk_keyword)
+
+            # Tahap 2: jika masih perlu review dan API Gemini aktif, bantu klasifikasi dengan AI
+            if model is not None:
+                mask_ai = df["Kelompok Produk AI"] == "Lainnya / Perlu Review"
+
+                produk_unik_ai = (
+                    df.loc[mask_ai, "Nama Produk"]
+                    .dropna()
+                    .astype(str)
+                    .drop_duplicates()
+                    .tolist()
+                )
+
+                mapping_ai = {}
+
+                for produk in produk_unik_ai:
+                    mapping_ai[produk] = kelompok_produk_ai(produk)
+
+                if mapping_ai:
+                    df.loc[mask_ai, "Kelompok Produk AI"] = df.loc[mask_ai, "Nama Produk"].map(mapping_ai)
+
         # Status klasifikasi
         status_won = [
             "Dealing",
             "Pelaksanaan Pekerjaan",
             "Closing / selesai Pekerjaan",
-            "Closing / selesai Pekerjaan",
+            "Closing",
             "Selesai Pekerjaan"
         ]
 
@@ -404,6 +785,11 @@ if not df.empty:
         options=sorted(df["Klaster Produk"].dropna().unique())
     )
 
+    pilih_kelompok_produk_ai = st.sidebar.multiselect(
+        "Pilih Kelompok Produk AI:",
+        options=sorted(df["Kelompok Produk AI"].dropna().unique()) if "Kelompok Produk AI" in df.columns else []
+    )
+
     pilih_anak_perusahaan = st.sidebar.multiselect(
         "Pilih Anak Perusahaan / Subholding:",
         options=sorted(df["ANAK PERUSAHAAN"].dropna().unique())
@@ -421,6 +807,9 @@ if not df.empty:
 
     if pilih_klaster:
         df_filtered = df_filtered[df_filtered["Klaster Produk"].isin(pilih_klaster)]
+
+    if pilih_kelompok_produk_ai and "Kelompok Produk AI" in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered["Kelompok Produk AI"].isin(pilih_kelompok_produk_ai)]
 
     if pilih_anak_perusahaan:
         df_filtered = df_filtered[df_filtered["ANAK PERUSAHAAN"].isin(pilih_anak_perusahaan)]
@@ -440,13 +829,12 @@ if not df.empty:
     potensi_ratio = (total_potensi / total_revenue * 100) if total_revenue > 0 else 0
     avg_project = (total_revenue / total_project) if total_project > 0 else 0
     
-    # Tambahan waktu update dashboard
     last_update = waktu_update_wib()
 
     st.markdown(
         f"""
         <div class="hero-box">
-            <div class="hero-title-main">📊 Dashboard COREBOOST 2.0 UID JAWA TIMUR</div>
+            <div class="hero-title-main">📊 Dashboard COREBOOST 2.0 UID JATIM</div>
             <div class="hero-title-sub">Integrated Bussines Solution (IBS) 2026</div>
             <div class="hero-subtitle">
                 Monitoring Revenue, Close Won, Potensi, Klaster Produk, Anak Perusahaan/Subholding, dan Project IBS.
@@ -497,7 +885,7 @@ if not df.empty:
     st.markdown(
         f"""
         <div class="mini-note">
-        💡 <b>Insight cepat:</b> gunakan filter di sisi kiri untuk memantau performa per UP3, klaster produk, anak perusahaan/subholding, dan status pipeline.
+        💡 <b>Insight cepat:</b> gunakan filter di sisi kiri untuk memantau performa per UP3, klaster produk, kelompok produk AI, anak perusahaan/subholding, dan status pipeline.
         <br>
         🕒 <b>Data terakhir dimuat:</b> {last_update}
         </div>
@@ -558,6 +946,20 @@ if not df.empty:
         by="Total_Revenue_Rp",
         ascending=False
     ).reset_index(drop=True)
+
+    if "Kelompok Produk AI" in df_filtered.columns:
+        rekap_kelompok_ai = (
+            df_filtered
+            .groupby("Kelompok Produk AI", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
+            .sum()
+            .reset_index()
+        )
+
+        rekap_kelompok_ai["Kelompok Produk AI"] = bersihkan_teks_kosong(rekap_kelompok_ai["Kelompok Produk AI"])
+        rekap_kelompok_ai["Revenue_M"] = rekap_kelompok_ai["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
+        rekap_kelompok_ai = rekap_kelompok_ai.sort_values("Revenue_M", ascending=False)
+    else:
+        rekap_kelompok_ai = pd.DataFrame()
 
     # =====================================================
     # TAB DASHBOARD
@@ -679,6 +1081,38 @@ if not df.empty:
 
             st.plotly_chart(fig_top_up3, use_container_width=True)
 
+        st.markdown('<div class="section-title">Revenue Berdasarkan Kelompok Produk AI</div>', unsafe_allow_html=True)
+
+        if rekap_kelompok_ai.empty or rekap_kelompok_ai["Revenue_M"].sum() <= 0:
+            st.info("Belum ada data revenue berdasarkan Kelompok Produk AI.")
+        else:
+            fig_kelompok_ai = px.bar(
+                rekap_kelompok_ai.sort_values("Revenue_M", ascending=True),
+                x="Revenue_M",
+                y="Kelompok Produk AI",
+                orientation="h",
+                text="Revenue_M",
+                color="Revenue_M",
+                color_continuous_scale="Blues",
+                title="Revenue per Kelompok Produk AI"
+            )
+
+            fig_kelompok_ai.update_traces(
+                texttemplate="%{text:.2f} M",
+                textposition="outside",
+                hovertemplate="<b>%{y}</b><br>Revenue: %{x:.2f} M<extra></extra>"
+            )
+
+            fig_kelompok_ai.update_layout(
+                height=550,
+                xaxis_title="Revenue (Miliar Rp)",
+                yaxis_title="",
+                showlegend=False,
+                margin=dict(t=60, l=10, r=30, b=10)
+            )
+
+            st.plotly_chart(fig_kelompok_ai, use_container_width=True)
+
     # =====================================================
     # TAB 2 ANALISIS
     # =====================================================
@@ -757,6 +1191,21 @@ if not df.empty:
             hide_index=True
         )
 
+        st.markdown('<div class="section-title">Rekap Revenue per Kelompok Produk AI</div>', unsafe_allow_html=True)
+
+        if not rekap_kelompok_ai.empty:
+            rekap_kelompok_ai_tampil = rekap_kelompok_ai.copy()
+            rekap_kelompok_ai_tampil.insert(0, "No", range(1, len(rekap_kelompok_ai_tampil) + 1))
+            rekap_kelompok_ai_tampil["Revenue"] = rekap_kelompok_ai_tampil["Nominal Kontrak / Revenue (Rp)"].apply(format_miliar)
+
+            st.dataframe(
+                rekap_kelompok_ai_tampil[
+                    ["No", "Kelompok Produk AI", "Revenue"]
+                ],
+                use_container_width=True,
+                hide_index=True
+            )
+
         st.subheader("🤖 AI Executive Summary")
 
         if st.button("Generate Narasi Evaluasi dengan AI"):
@@ -774,6 +1223,9 @@ if not df.empty:
 
                     Rekap Klaster:
                     {rekap_klaster.to_dict(orient='records')}
+
+                    Rekap Kelompok Produk AI:
+                    {rekap_kelompok_ai.to_dict(orient='records') if not rekap_kelompok_ai.empty else []}
 
                     Rekap Anak Perusahaan:
                     {rekap_anak.to_dict(orient='records')}
@@ -794,9 +1246,10 @@ if not df.empty:
                     Fokus pada:
                     1. Gambaran pencapaian revenue dan close won.
                     2. Klaster produk yang dominan.
-                    3. Peran anak perusahaan/subholding.
-                    4. Potensi yang perlu dikonversi menjadi close won.
-                    5. Rekomendasi tindak lanjut strategis.
+                    3. Kelompok Produk AI yang paling berkontribusi.
+                    4. Peran anak perusahaan/subholding.
+                    5. Potensi yang perlu dikonversi menjadi close won.
+                    6. Rekomendasi tindak lanjut strategis.
                     """
 
                     response = model.generate_content(prompt)
@@ -807,14 +1260,14 @@ if not df.empty:
     # =====================================================
     with tab3:
         st.markdown('<div class="section-title">Data Detail</div>', unsafe_allow_html=True)
-    
+
         df_tampil = df_filtered.copy().reset_index(drop=True)
-    
+
         if "No" in df_tampil.columns:
             df_tampil = df_tampil.drop(columns=["No"])
-    
+
         df_tampil.insert(0, "No", range(1, len(df_tampil) + 1))
-    
+
         # =====================================================
         # KOLOM DETAIL DISESUAIKAN DENGAN SOURCE GOOGLE SHEETS
         # =====================================================
@@ -824,6 +1277,7 @@ if not df.empty:
             "IDPEL",
             "Daya (VA)",
             "Nama Produk",
+            "Kelompok Produk AI",
             "Klaster Produk",
             "ANAK PERUSAHAAN",
             "UP3",
@@ -831,22 +1285,23 @@ if not df.empty:
             "Nama PIC/PAE",
             "No. WA PIC / PAE",
             "Nominal Kontrak / Revenue (Rp)",
+            "Nominal Revenue (Rp)",
             "Status Terupdate",
             "Kendala yang dihadapi",
             "Bulan Kunjungan",
-            "TANGGAL PROBING\n(TGL/BLN/THN)",
-            "TANGGAL PENAWARAN\n(TGL/BLN/THN)",
-            "TANGGAL CLOSE WON\n(TGL/BLN/THN)",
-            "TANGGAL\nENERGIZE/SELESAI\nPEKERJAAN\n(TGL/BLN/THN)"
+            "TANGGAL PROBING (TGL/BLN/THN)",
+            "TANGGAL PENAWARAN (TGL/BLN/THN)",
+            "TANGGAL CLOSE WON (TGL/BLN/THN)",
+            "TANGGAL ENERGIZE/SELESAI PEKERJAAN (TGL/BLN/THN)",
+            "Close Won (Rp)",
+            "Potensi (Rp)"
         ]
-    
-        # Ambil hanya kolom yang benar-benar ada di dataframe
+
         kolom_tersedia = [kolom for kolom in kolom_detail_source if kolom in df_tampil.columns]
-    
         df_tampil = df_tampil[kolom_tersedia]
-    
+
         search_nama = st.text_input("🔍 Cari Nama Pelanggan / Produk / UP3 / Status", "")
-    
+
         if search_nama:
             df_tampil = df_tampil[
                 df_tampil.astype(str).apply(
@@ -854,35 +1309,39 @@ if not df.empty:
                     axis=1
                 )
             ]
-    
+
         # =====================================================
         # FORMAT AKUNTANSI UNTUK TAMPILAN DATA DETAIL
         # =====================================================
         kolom_format_akuntansi = [
             "Daya (VA)",
-            "Nominal Kontrak / Revenue (Rp)"
+            "Nominal Kontrak / Revenue (Rp)",
+            "Close Won (Rp)",
+            "Potensi (Rp)",
+            "Nominal Revenue (Rp)"
         ]
-    
+
         df_tampil_display = df_tampil.copy()
-    
+
         for kolom in kolom_format_akuntansi:
             if kolom in df_tampil_display.columns:
                 df_tampil_display[kolom] = df_tampil_display[kolom].apply(format_akuntansi)
-    
+
         st.dataframe(
             df_tampil_display,
             use_container_width=True,
             hide_index=True
         )
-    
-        # CSV tetap memakai data asli agar angka masih bisa dihitung di Excel
+
+        # CSV tetap menggunakan data asli agar angka masih bisa dihitung di Excel
         csv = df_tampil.to_csv(index=False).encode("utf-8")
-    
+
         st.download_button(
             label="⬇️ Download Data Filtered (CSV)",
             data=csv,
             file_name="dashboard_ibs_filtered.csv",
             mime="text/csv"
         )
+
 else:
     st.warning("Data belum berhasil dimuat.")
