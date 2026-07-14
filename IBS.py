@@ -701,15 +701,15 @@ def load_data_from_gsheets():
             df = df[df["Nama Pelanggan"] != ""]
 
         # =====================================================
-        # KELOMPOK PRODUK AI
+        # KELOMPOK Produk
         # =====================================================
         if "Nama Produk" in df.columns:
             # Tahap 1: klasifikasi cepat berbasis keyword
-            df["Kelompok Produk AI"] = df["Nama Produk"].apply(kelompok_produk_keyword)
+            df["Kelompok Produk"] = df["Nama Produk"].apply(kelompok_produk_keyword)
 
             # Tahap 2: jika masih perlu review dan API Gemini aktif, bantu klasifikasi dengan AI
             if model is not None:
-                mask_ai = df["Kelompok Produk AI"] == "Lainnya / Perlu Review"
+                mask_ai = df["Kelompok Produk"] == "Lainnya / Perlu Review"
 
                 produk_unik_ai = (
                     df.loc[mask_ai, "Nama Produk"]
@@ -725,7 +725,7 @@ def load_data_from_gsheets():
                     mapping_ai[produk] = kelompok_produk_ai(produk)
 
                 if mapping_ai:
-                    df.loc[mask_ai, "Kelompok Produk AI"] = df.loc[mask_ai, "Nama Produk"].map(mapping_ai)
+                    df.loc[mask_ai, "Kelompok Produk"] = df.loc[mask_ai, "Nama Produk"].map(mapping_ai)
 
         # Status klasifikasi
         status_won = [
@@ -786,8 +786,8 @@ if not df.empty:
     )
 
     pilih_kelompok_produk_ai = st.sidebar.multiselect(
-        "Pilih Kelompok Produk AI:",
-        options=sorted(df["Kelompok Produk AI"].dropna().unique()) if "Kelompok Produk AI" in df.columns else []
+        "Pilih Kelompok Produk:",
+        options=sorted(df["Kelompok Produk"].dropna().unique()) if "Kelompok Produk" in df.columns else []
     )
 
     pilih_anak_perusahaan = st.sidebar.multiselect(
@@ -808,8 +808,8 @@ if not df.empty:
     if pilih_klaster:
         df_filtered = df_filtered[df_filtered["Klaster Produk"].isin(pilih_klaster)]
 
-    if pilih_kelompok_produk_ai and "Kelompok Produk AI" in df_filtered.columns:
-        df_filtered = df_filtered[df_filtered["Kelompok Produk AI"].isin(pilih_kelompok_produk_ai)]
+    if pilih_kelompok_produk_ai and "Kelompok Produk" in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered["Kelompok Produk"].isin(pilih_kelompok_produk_ai)]
 
     if pilih_anak_perusahaan:
         df_filtered = df_filtered[df_filtered["ANAK PERUSAHAAN"].isin(pilih_anak_perusahaan)]
@@ -885,7 +885,7 @@ if not df.empty:
     st.markdown(
         f"""
         <div class="mini-note">
-        💡 <b>Insight cepat:</b> gunakan filter di sisi kiri untuk memantau performa per UP3, klaster produk, kelompok produk AI, anak perusahaan/subholding, dan status pipeline.
+        💡 <b>Insight cepat:</b> gunakan filter di sisi kiri untuk memantau performa per UP3, klaster produk, kelompok Produk, anak perusahaan/subholding, dan status pipeline.
         <br>
         🕒 <b>Data terakhir dimuat:</b> {last_update}
         </div>
@@ -947,15 +947,15 @@ if not df.empty:
         ascending=False
     ).reset_index(drop=True)
 
-    if "Kelompok Produk AI" in df_filtered.columns:
+    if "Kelompok Produk" in df_filtered.columns:
         rekap_kelompok_ai = (
             df_filtered
-            .groupby("Kelompok Produk AI", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
+            .groupby("Kelompok Produk", dropna=False)["Nominal Kontrak / Revenue (Rp)"]
             .sum()
             .reset_index()
         )
 
-        rekap_kelompok_ai["Kelompok Produk AI"] = bersihkan_teks_kosong(rekap_kelompok_ai["Kelompok Produk AI"])
+        rekap_kelompok_ai["Kelompok Produk"] = bersihkan_teks_kosong(rekap_kelompok_ai["Kelompok Produk"])
         rekap_kelompok_ai["Revenue_M"] = rekap_kelompok_ai["Nominal Kontrak / Revenue (Rp)"] / 1_000_000_000
         rekap_kelompok_ai = rekap_kelompok_ai.sort_values("Revenue_M", ascending=False)
     else:
@@ -1081,20 +1081,20 @@ if not df.empty:
 
             st.plotly_chart(fig_top_up3, use_container_width=True)
 
-        st.markdown('<div class="section-title">Revenue Berdasarkan Kelompok Produk AI</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Revenue Berdasarkan Kelompok Produk</div>', unsafe_allow_html=True)
 
         if rekap_kelompok_ai.empty or rekap_kelompok_ai["Revenue_M"].sum() <= 0:
-            st.info("Belum ada data revenue berdasarkan Kelompok Produk AI.")
+            st.info("Belum ada data revenue berdasarkan Kelompok Produk.")
         else:
             fig_kelompok_ai = px.bar(
                 rekap_kelompok_ai.sort_values("Revenue_M", ascending=True),
                 x="Revenue_M",
-                y="Kelompok Produk AI",
+                y="Kelompok Produk",
                 orientation="h",
                 text="Revenue_M",
                 color="Revenue_M",
                 color_continuous_scale="Blues",
-                title="Revenue per Kelompok Produk AI"
+                title="Revenue per Kelompok Produk"
             )
 
             fig_kelompok_ai.update_traces(
@@ -1191,7 +1191,7 @@ if not df.empty:
             hide_index=True
         )
 
-        st.markdown('<div class="section-title">Rekap Revenue per Kelompok Produk AI</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Rekap Revenue per Kelompok Produk</div>', unsafe_allow_html=True)
 
         if not rekap_kelompok_ai.empty:
             rekap_kelompok_ai_tampil = rekap_kelompok_ai.copy()
@@ -1200,7 +1200,7 @@ if not df.empty:
 
             st.dataframe(
                 rekap_kelompok_ai_tampil[
-                    ["No", "Kelompok Produk AI", "Revenue"]
+                    ["No", "Kelompok Produk", "Revenue"]
                 ],
                 use_container_width=True,
                 hide_index=True
@@ -1224,7 +1224,7 @@ if not df.empty:
                     Rekap Klaster:
                     {rekap_klaster.to_dict(orient='records')}
 
-                    Rekap Kelompok Produk AI:
+                    Rekap Kelompok Produk:
                     {rekap_kelompok_ai.to_dict(orient='records') if not rekap_kelompok_ai.empty else []}
 
                     Rekap Anak Perusahaan:
@@ -1246,7 +1246,7 @@ if not df.empty:
                     Fokus pada:
                     1. Gambaran pencapaian revenue dan close won.
                     2. Klaster produk yang dominan.
-                    3. Kelompok Produk AI yang paling berkontribusi.
+                    3. Kelompok Produk yang paling berkontribusi.
                     4. Peran anak perusahaan/subholding.
                     5. Potensi yang perlu dikonversi menjadi close won.
                     6. Rekomendasi tindak lanjut strategis.
@@ -1277,7 +1277,7 @@ if not df.empty:
             "IDPEL",
             "Daya (VA)",
             "Nama Produk",
-            "Kelompok Produk AI",
+            "Kelompok Produk",
             "Klaster Produk",
             "ANAK PERUSAHAAN",
             "UP3",
